@@ -1323,7 +1323,7 @@ function startRun(flowId){
     return;
   }
   const url = `${location.pathname}?run=${encodeURIComponent(flowId)}`;
-  const features = `width=420,height=${screen.availHeight || 800},left=0,top=0,resizable=yes,scrollbars=yes`;
+  const features = `width=420,height=420,left=0,top=0,resizable=yes,scrollbars=yes`;
   const popup = window.open(url, "flowboard-run", features);
   if (!popup){
     alert(t("popupBlockedFallback"));
@@ -1381,13 +1381,11 @@ function renderRunSetup(flow){
         <div class="cue-card">
           <div class="cue-eyebrow">${t("preflightEyebrow")}</div>
           <h2 class="cue-title">${t("preflightTitle")}</h2>
-          <p class="cue-desc">${t("preflightDesc")}</p>
-          ${setupLinks.length > 1 ? `
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-              <button class="preflight-open-btn" id="run-open-all-setup" style="border-color:var(--accent); color:var(--accent);">Open All (${setupLinks.length})</button>
-            </div>
-            <p style="font-size:11.5px; color:rgba(242,239,230,0.45); margin-top:6px;">${t("openAllNote")}</p>
-          ` : ""}
+          <div class="cue-actions" style="margin-bottom:${setupLinks.length > 1 ? "6px" : "20px"};">
+            ${setupLinks.length > 1 ? `<button class="preflight-open-btn" id="run-open-all-setup" style="border-color:var(--accent); color:var(--accent);">Open All (${setupLinks.length})</button>` : ""}
+            <button class="cue-open-btn" id="run-start-steps">Start Class →</button>
+          </div>
+          ${setupLinks.length > 1 ? `<p style="font-size:11.5px; color:rgba(242,239,230,0.45); margin-bottom:20px;">${t("openAllNote")}</p>` : ""}
           <div class="preflight-list">
             ${setupLinks.map(l => `
               <div class="preflight-row ${RunState.openedSetup.has(l.id) ? "is-opened":""}" data-preflight-row="${l.id}">
@@ -1399,9 +1397,7 @@ function renderRunSetup(flow){
               </div>
             `).join("")}
           </div>
-          <div class="cue-actions">
-            <button class="cue-open-btn" id="run-start-steps">Start Class →</button>
-          </div>
+          <p class="cue-desc" style="margin-top:20px; margin-bottom:0;">${t("preflightDesc")}</p>
         </div>
       </div>
     </div>

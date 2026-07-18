@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작품 제출하기</title>
+<style>
+  :root {
+    --ink: #2b2b33;
+    --paper: #fbf7ee;
+    --line: #2b2b33;
+    --accent: #ff6b4a;
+    --accent-2: #3a6ea5;
+    --muted: #8b8578;
+    --ok: #3f8f5f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(43,43,51,0.08) 1px, transparent 0);
+    background-size: 22px 22px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 440px;
+    background: #fffdf8;
+    border: 3px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 6px 6px 0 var(--line);
+    padding: 32px 28px 28px;
+    position: relative;
+  }
+
+  h1 {
+    font-size: 22px;
+    margin: 10px 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 18px 0 6px;
+    color: var(--ink);
+  }
+
+  input[type="text"], select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  select {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+    background-position: calc(100% - 20px) center, calc(100% - 14px) center;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+  }
+
+  input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent-2);
+  }
+
+  .dropzone {
+    margin-top: 6px;
+    border: 2px dashed var(--muted);
+    border-radius: 10px;
+    padding: 22px 14px;
+    text-align: center;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .dropzone.dragover {
+    border-color: var(--accent);
+    background: #fff4ee;
+  }
+
+  .dropzone input[type="file"] { display: none; }
+
+  .dropzone .hint {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .preview {
+    margin-top: 12px;
+    display: none;
+  }
+
+  .preview img {
+    max-width: 100%;
+    max-height: 220px;
+    border-radius: 10px;
+    border: 2px solid var(--line);
+    display: block;
+    margin: 0 auto;
+  }
+
+  .filename {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+    word-break: break-all;
+  }
+
+  button.submit {
+    width: 100%;
+    margin-top: 24px;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--accent);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--line);
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+
+  button.submit:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--line);
+  }
+
+  button.submit:active:not(:disabled) {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--line);
+  }
+
+  button.submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .status {
+    margin-top: 16px;
+    font-size: 13px;
+    text-align: center;
+    min-height: 18px;
+  }
+
+  .status.error { color: #c0392b; font-weight: 700; }
+  .status.ok { color: var(--ok); font-weight: 700; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(43,43,51,0.2);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .field-error {
+    font-size: 12px;
+    color: #c0392b;
+    margin-top: 4px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>작품 제출하기</h1>
+  <div class="sub">이름과 반을 선택하고 그림 파일을 올려주세요</div>
+
+  <form id="uploadForm">
+    <label for="studentName">이름</label>
+    <input type="text" id="studentName" placeholder="이름을 입력하세요" autocomplete="off">
+    <div class="field-error" id="nameError">이름을 입력해주세요</div>
+
+    <label for="classSelect">반 선택</label>
+    <select id="classSelect">
+      <option value="" disabled selected>반을 선택하세요</option>
+      <option value="webtoon/class_sd_A">신도림초 A</option>
+      <option value="webtoon/class_sd_B">신도림초 B</option>
+      <option value="webtoon/class_dh_A">등현초A</option>
+      <option value="webtoon/class_dh_B">등현초B</option>
+      <option value="webtoon/class_sn_A">신남초 A</option>
+      <option value="webtoon/class_sn_B">신남초 B</option>
+    </select>
+    <div class="field-error" id="classError">반을 선택해주세요</div>
+
+    <label>이미지 파일</label>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="hint" id="dzHint">클릭하거나 파일을 끌어다 놓으세요</div>
+      <div class="preview" id="preview">
+        <img id="previewImg" alt="미리보기">
+      </div>
+      <div class="filename" id="fileNameLabel"></div>
+    </div>
+    <div class="field-error" id="fileError">이미지 파일을 선택해주세요</div>
+
+    <button type="submit" class="submit" id="submitBtn">제출하기</button>
+    <div class="status" id="status"></div>
+  </form>
+</div>
+
+<script>
+  const CLOUD_NAME = 'qmbonapf';
+  const UPLOAD_PRESET = 'stickman';
+
+  const form = document.getElementById('uploadForm');
+  const nameInput = document.getElementById('studentName');
+  const classSelect = document.getElementById('classSelect');
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const preview = document.getElementById('preview');
+  const previewImg = document.getElementById('previewImg');
+  const fileNameLabel = document.getElementById('fileNameLabel');
+  const dzHint = document.getElementById('dzHint');
+  const submitBtn = document.getElementById('submitBtn');
+  const status = document.getElementById('status');
+
+  const nameError = document.getElementById('nameError');
+  const classError = document.getElementById('classError');
+  const fileError = document.getElementById('fileError');
+
+  let selectedFile = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      handleFile(fileInput.files[0]);
+    }
+  });
+
+  function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+      showFieldError(fileError, '이미지 파일만 업로드할 수 있어요');
+      return;
+    }
+    hideFieldError(fileError);
+    selectedFile = file;
+    fileNameLabel.textContent = file.name;
+    dzHint.style.display = 'none';
+    preview.style.display = 'block';
+    const reader = new FileReader();
+    reader.onload = (e) => { previewImg.src = e.target.result; };
+    reader.readAsDataURL(file);
+  }
+
+  function showFieldError(el, msg) {
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideFieldError(el) {
+    el.style.display = 'none';
+  }
+
+  nameInput.addEventListener('input', () => hideFieldError(nameError));
+  classSelect.addEventListener('change', () => hideFieldError(classError));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    status.textContent = '';
+    status.className = 'status';
+
+    let valid = true;
+    const name = nameInput.value.trim();
+    const folder = classSelect.value;
+
+    if (!name) { showFieldError(nameError, '이름을 입력해주세요'); valid = false; } else { hideFieldError(nameError); }
+    if (!folder) { showFieldError(classError, '반을 선택해주세요'); valid = false; } else { hideFieldError(classError); }
+    if (!selectedFile) { showFieldError(fileError, '이미지 파일을 선택해주세요'); valid = false; } else { hideFieldError(fileError); }
+
+    if (!valid) return;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span>업로드 중...';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', folder);
+      formData.append('context', `student_name=${name}`);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || '업로드에 실패했습니다');
+      }
+
+      status.textContent = `제출 완료! (${name}님, ${classSelect.options[classSelect.selectedIndex].text})`;
+      status.className = 'status ok';
+
+      // reset form
+      form.reset();
+      selectedFile = null;
+      preview.style.display = 'none';
+      dzHint.style.display = 'block';
+      fileNameLabel.textContent = '';
+
+    } catch (err) {
+      status.textContent = err.message || '업로드 중 오류가 발생했습니다';
+      status.className = 'status error';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '제출하기';
+    }
+  });
+</script>
+
+</body>
+</html>

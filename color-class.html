@@ -92,7 +92,18 @@
   .panel-title{display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 14px;}
 
   /* ---------- WHEEL ---------- */
-  .wheel-wrap{display:flex; justify-content:center; margin:6px 0 4px;}
+  .wheel-wrap{display:flex; justify-content:center; margin:6px 0 4px; position:relative;}
+  .wheel-tooltip{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.85);
+    display:flex; align-items:center; gap:8px;
+    background:var(--ink); color:#fff; font-family:'Jua',sans-serif; font-size:14px;
+    padding:8px 16px; border-radius:999px; white-space:nowrap;
+    box-shadow:0 6px 16px rgba(0,0,0,.28);
+    opacity:0; pointer-events:none; z-index:5;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .wheel-tooltip.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+  .wheel-tooltip .tip-dot{width:16px; height:16px; border-radius:50%; border:2px solid #fff; flex-shrink:0;}
   .wheel-svg{width:min(82vw,330px); height:min(82vw,330px); touch-action:manipulation;}
   .wheel-svg path{cursor:pointer; transition: filter .1s ease, transform .1s ease; transform-origin:200px 200px;}
   .wheel-svg path:hover{filter:brightness(1.08);}
@@ -252,8 +263,10 @@
     <div class="panel" id="classWheelPanel">
       <h2 class="panel-title">🎲 색상 랜덤뽑기</h2>
       <p class="hint-text" id="classHint">버튼을 누르면 색상환에서 한 가지 색이 사라져요. 어떤 색인지 맞혀 볼까요?</p>
-      <div class="wheel-wrap"><svg class="wheel-svg" id="wheelClass" viewBox="0 0 400 400"></svg></div>
-      <div class="info-card empty" id="classWheelInfo">👆 색을 눌러 보면 어떤 색인지 알려줘요!</div>
+      <div class="wheel-wrap">
+        <svg class="wheel-svg" id="wheelClass" viewBox="0 0 400 400"></svg>
+        <div class="wheel-tooltip" id="classWheelTooltip"></div>
+      </div>
       <div class="make-btn-row">
         <button class="btn coral" id="makeColorBtn">🎲 색상 랜덤뽑기</button>
       </div>
@@ -556,7 +569,7 @@ renderWheel(wheelExplore, {
 
 /* ============ 수업 시작 모드 ============ */
 const wheelClass = document.getElementById('wheelClass');
-const classWheelInfo = document.getElementById('classWheelInfo');
+const classWheelTooltip = document.getElementById('classWheelTooltip');
 const classWheelPanel = document.getElementById('classWheelPanel');
 const mixStage = document.getElementById('mixStage');
 const classHint = document.getElementById('classHint');
@@ -581,19 +594,28 @@ let currentTargetId = null;
 let picked = [null, null];
 let lastMix = null; // {hex, name}
 let myColors = []; // 세션 내 저장 (localStorage 사용하지 않음)
+let wheelTooltipTimer = null;
+
+/* 색상환 위에 작은 말풍선 팝업으로 색 이름을 잠깐 보여주고 자동으로 사라짐 (버튼과 같은 줄을 차지하지 않음) */
+function showWheelTooltip(colorId){
+  const c = byId(colorId);
+  classWheelTooltip.innerHTML = `<span class="tip-dot" style="background:${c.hex}"></span>${emojiFor(c)} ${c.name} <span style="opacity:.7;font-size:12px;">(${c.code})</span>`;
+  classWheelTooltip.classList.add('show');
+  clearTimeout(wheelTooltipTimer);
+  wheelTooltipTimer = setTimeout(()=>{ classWheelTooltip.classList.remove('show'); }, 1800);
+}
 
 function resetClassFlow(){
   currentTargetId = null;
   classWheelPanel.style.display='block';
   mixStage.classList.remove('active');
   classHint.textContent='색상환의 색을 눌러 살펴보거나, 버튼을 눌러 무작위로 색깔 문제를 뽑아 보세요.';
-  classWheelInfo.classList.add('empty');
-  classWheelInfo.innerHTML = '👆 색을 눌러 보면 어떤 색인지 알려줘요!';
+  classWheelTooltip.classList.remove('show');
   renderWheel(wheelClass, {
     onSelect(id, pathEl){
       wheelClass.querySelectorAll('path').forEach(p=>p.classList.remove('selected'));
       pathEl.classList.add('selected');
-      renderInfoCard(classWheelInfo, id);
+      showWheelTooltip(id);
     }
   });
   makeColorBtn.disabled=false;
@@ -603,15 +625,14 @@ function resetClassFlow(){
 makeColorBtn.addEventListener('click', ()=>{
   const id = mixableIds[Math.floor(Math.random()*mixableIds.length)];
   currentTargetId = id;
-  classWheelInfo.classList.add('empty');
-  classWheelInfo.innerHTML = '👆 색상환 속 물음표(❓)를 눌러 정체를 확인해 보세요! (다른 색을 눌러 보아도 좋아요)';
+  classWheelTooltip.classList.remove('show');
   renderWheel(wheelClass, {
     blankId:id,
     onSelect(clickedId, pathEl){
       if(clickedId===id){ revealTarget(id); return; }
       wheelClass.querySelectorAll('path').forEach(p=>p.classList.remove('selected'));
       pathEl.classList.add('selected');
-      renderInfoCard(classWheelInfo, clickedId);
+      showWheelTooltip(clickedId);
     }
   });
   classHint.textContent = '색상환 속 물음표(❓)를 눌러 정체를 확인해 보세요!';
@@ -759,7 +780,7 @@ function drawGlossyBlob(x,y,r,hex, sx=1, sy=1, rot=0){
   ctx.fill();
   ctx.restore();
 }
-/* 물감 한 획(스트로크) - 팔레트 나이프로 짓이길 때 생기는 마블링 결. multiply로 겹치면 실제 물감처럼 탁하게 섞인다 */
+/* 물감 한 획(스트로크) - 옅게 스치는 결. multiply를 아주 약하게만 써서 탁해지지 않게 한다 */
 function drawStreak(x,y,angle,length,width,hex,alpha){
   ctx.save();
   ctx.globalAlpha=alpha;
@@ -767,26 +788,26 @@ function drawStreak(x,y,angle,length,width,hex,alpha){
   ctx.translate(x,y);
   ctx.rotate(angle);
   const grad=ctx.createLinearGradient(-length/2,0,length/2,0);
-  grad.addColorStop(0, darken(hex,4));
-  grad.addColorStop(0.5, lighten(hex,6));
-  grad.addColorStop(1, darken(hex,4));
+  grad.addColorStop(0, darken(hex,1.5));
+  grad.addColorStop(0.5, lighten(hex,3));
+  grad.addColorStop(1, darken(hex,1.5));
   ctx.beginPath();
   ctx.ellipse(0,0,length/2,width/2,0,0,Math.PI*2);
   ctx.fillStyle=grad;
   ctx.fill();
   ctx.restore();
 }
-/* 완전히 섞이기 직전, 아직 균일하지 않은 물감 얼룩 질감 */
+/* 완전히 섞이기 직전, 아주 살짝만 남기는 물감 결 질감 */
 function drawPaintMottle(x,y,r,hex,strength){
   if(strength<=0) return;
   ctx.save();
   ctx.globalCompositeOperation='multiply';
-  for(let i=0;i<9;i++){
-    const ang=(i/9)*Math.PI*2 + i*0.7;
-    const rad=Math.random()*r*0.55;
+  for(let i=0;i<5;i++){
+    const ang=(i/5)*Math.PI*2 + i*0.7;
+    const rad=Math.random()*r*0.5;
     const mx=x+Math.cos(ang)*rad, my=y+Math.sin(ang)*rad*0.85;
-    const tone = i%2===0 ? darken(hex,14) : lighten(hex,12);
-    ctx.globalAlpha = 0.22*strength;
+    const tone = i%2===0 ? darken(hex,7) : lighten(hex,6);
+    ctx.globalAlpha = 0.12*strength;
     ctx.beginPath();
     ctx.ellipse(mx,my, r*0.2, r*0.12, ang, 0, Math.PI*2);
     ctx.fillStyle=tone;
@@ -799,12 +820,12 @@ function playMixAnimation(hexA,hexB,resultHex,onDone){
   const W=canvas.width, H=canvas.height;
   const cx=W/2, cy=H/2;
   const startA={x:W*0.24,y:H*0.48}, startB={x:W*0.76,y:H*0.48};
-  const duration=2100;
+  const duration=1750;
   const t0=performance.now();
 
-  // 마블링(소용돌이) 스트로크 씨앗을 미리 만들어 매 프레임 일관되게 회전시킨다
+  // 마블링(소용돌이) 스트로크 씨앗 - 개수를 크게 줄여 결이 옅게만 보이도록 한다
   const seeds=[];
-  const seedCount=30;
+  const seedCount=9;
   for(let i=0;i<seedCount;i++){
     seeds.push({
       baseAngle: (i/seedCount)*Math.PI*2 + (Math.random()-0.5)*0.35,
@@ -828,19 +849,19 @@ function playMixAnimation(hexA,hexB,resultHex,onDone){
     ctx.fillStyle='rgba(43,58,66,0.06)';
     ctx.fill();
 
-    if(t<0.3){
+    if(t<0.28){
       /* 1단계: 물감 두 덩이가 서로 다가가며 눌린다(스쿼시) */
-      const p=t/0.3;
+      const p=t/0.28;
       const flatten = p*0.55;
       const ax=lerpNum(startA.x,cx-16,p), ay=startA.y - p*4;
       const bx=lerpNum(startB.x,cx+16,p), by=startB.y - p*4;
       drawGlossyBlob(ax,ay,44, hexA, 1+flatten*0.32, 1-flatten*0.22, -p*0.12);
       drawGlossyBlob(bx,by,44, hexB, 1+flatten*0.32, 1-flatten*0.22,  p*0.12);
-    } else if(t<0.82){
-      /* 2단계: 팔레트 나이프로 짓이기듯 마블링하며 섞인다 (multiply로 실제 물감처럼 탁하게) */
-      const p=(t-0.3)/0.52; // 0..1
+    } else if(t<0.5){
+      /* 2단계: 살짝만 문질러 섞이는 느낌(옅은 결) - 짧게 지나가고 결과색으로 빠르게 수렴 */
+      const p=(t-0.28)/0.22; // 0..1
       const blobR = 44 + p*16;
-      const baseColor = rgbLerp(rgbLerp(hexA,hexB,0.5), resultHex, Math.min(1,p*1.15));
+      const baseColor = rgbLerp(rgbLerp(hexA,hexB,0.5), resultHex, Math.min(1,p*1.9));
       drawGlossyBlob(cx,cy, blobR, baseColor);
 
       seeds.forEach(s=>{
@@ -850,13 +871,13 @@ function playMixAnimation(hexA,hexB,resultHex,onDone){
         const sx = cx+Math.cos(ang)*rad;
         const sy = cy+Math.sin(ang)*rad*0.86;
         const rawColor = s.side==='a' ? hexA : hexB;
-        const streakColor = rgbLerp(rawColor, resultHex, Math.min(1, p*1.05));
-        const len = (26 + s.lenFactor*30) * (1-p*0.45);
-        const wid = (9 + s.widFactor*11) * (1-p*0.3);
-        drawStreak(sx,sy, ang+Math.PI/2+Math.sin(s.wobble+spin)*0.55, len, wid, streakColor, 0.8*(1-p*0.2));
+        const streakColor = rgbLerp(rawColor, resultHex, Math.min(1, p*1.7));
+        const len = (18 + s.lenFactor*18) * (1-p*0.45);
+        const wid = (6 + s.widFactor*7) * (1-p*0.3);
+        drawStreak(sx,sy, ang+Math.PI/2+Math.sin(s.wobble+spin)*0.55, len, wid, streakColor, 0.24*(1-p*0.2));
       });
 
-      // 짓이기며 생기는 옅은 광택
+      // 옅은 광택
       ctx.save();
       ctx.globalAlpha=0.22*(1-p*0.5);
       ctx.beginPath();
@@ -865,11 +886,11 @@ function playMixAnimation(hexA,hexB,resultHex,onDone){
       ctx.fill();
       ctx.restore();
     } else {
-      /* 3단계: 하나의 색으로 완전히 섞임 */
-      const p=(t-0.82)/0.18;
-      const r = 58+p*5;
+      /* 3단계: 하나의 색으로 완전히 섞임 (길게 유지해 결과색이 확실히 안정됨) */
+      const p=(t-0.5)/0.5;
+      const r = 58+Math.min(1,p*2)*5;
       drawGlossyBlob(cx,cy, r, resultHex);
-      drawPaintMottle(cx,cy, r, resultHex, 1-p);
+      drawPaintMottle(cx,cy, r, resultHex, Math.max(0,1-p*2.5));
     }
 
     if(t<1){ requestAnimationFrame(frame); }
@@ -901,46 +922,4 @@ mixBtn.addEventListener('click', ()=>{
       const target = byId(currentTargetId);
       const isCorrect = !!match.color && match.color.id === currentTargetId;
       renderTargetReveal(target, isCorrect);
-      showToast(isCorrect ? '정답이에요! 🎉' : `아쉬워요! 정답은 '${target.name}'이었어요.`);
-    }
-  });
-});
-
-addToPaletteBtn.addEventListener('click', ()=>{
-  if(!lastMix) return;
-  myColors.push(lastMix);
-  renderGallery();
-  showToast('색상판에 저장했어요! 🎉');
-});
-
-nextColorBtn.addEventListener('click', resetClassFlow);
-
-function renderGallery(){
-  if(myColors.length===0){
-    gallery.innerHTML = `<div class="gallery-empty">아직 만든 색이 없어요. 색을 섞어서 색상판을 채워 보세요!</div>`;
-    return;
-  }
-  gallery.innerHTML='';
-  myColors.forEach(m=>{
-    const item=document.createElement('div');
-    item.className='gallery-item';
-    item.innerHTML = `<div class="gallery-swatch" style="background:${m.hex}"></div>${m.name}<br><span style="font-size:10.5px;">${m.fromA.name}+${m.fromB.name}</span>`;
-    gallery.appendChild(item);
-  });
-}
-
-let toastTimer=null;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'), 1800);
-}
-
-/* 초기화 */
-resetClassFlow();
-})();
-</script>
-</body>
-</html>
+      showToast(isCorrect ? '정답이에요! 🎉' : `아쉬워요! 정답은 '${target.name}

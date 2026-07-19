@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>미술 수업 도구 모음</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #FAF3E4;
+    --paper-line: #E7DCC4;
+    --ink: #33302A;
+    --ink-soft: #6B6357;
+    --coral: #FF6F5E;
+    --sky: #3E8FDE;
+    --sun: #F2B705;
+    --leaf: #4C9A6B;
+    --violet: #8B6FC9;
+    --tape: rgba(255, 255, 255, 0.55);
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 2.1rem;
+    background-color: var(--paper);
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--ink);
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .wrap{
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom: 3.5rem;
+    position:relative;
+  }
+
+  .pin{
+    width: 14px;
+    height:14px;
+    border-radius:50%;
+    background: var(--coral);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    margin: 0 auto 0.8rem;
+  }
+
+  h1{
+    font-family: 'Gaegu', cursive;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+    color: var(--ink);
+    transform: rotate(-1deg);
+  }
+
+  header p{
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  .board{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 2.2rem 1.8rem;
+  }
+
+  .card{
+    position: relative;
+    background: #fff;
+    border-radius: 6px;
+    padding: 1.8rem 1.6rem 1.6rem;
+    box-shadow: 0 10px 20px -8px rgba(51,48,42,0.25), 0 2px 4px rgba(51,48,42,0.08);
+    text-decoration:none;
+    color: var(--ink);
+    display:flex;
+    flex-direction:column;
+    gap: 0.7rem;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .card:hover, .card:focus-visible{
+    transform: translateY(-6px) rotate(0deg) !important;
+    box-shadow: 0 18px 28px -10px rgba(51,48,42,0.3), 0 4px 8px rgba(51,48,42,0.1);
+    outline: none;
+  }
+
+  .card:focus-visible{
+    outline: 3px solid var(--sky);
+    outline-offset: 3px;
+  }
+
+  .card::before{
+    content:"";
+    position:absolute;
+    top:-10px;
+    left:50%;
+    transform: translateX(-50%) rotate(-3deg);
+    width: 56px;
+    height: 22px;
+    background: var(--tape);
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+
+  .card .icon{
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 1.5rem;
+    color:#fff;
+  }
+
+  .card h2{
+    font-family:'Gaegu', cursive;
+    font-size: 1.6rem;
+    margin: 0;
+  }
+
+  .card p{
+    margin:0;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+    line-height:1.5;
+    flex-grow:1;
+  }
+
+  .card .go{
+    font-size: 0.85rem;
+    font-weight:500;
+    color: var(--ink);
+    display:flex;
+    align-items:center;
+    gap: 0.3rem;
+  }
+
+  .card .go::after{
+    content:"→";
+    transition: transform 0.18s ease;
+  }
+  .card:hover .go::after{
+    transform: translateX(4px);
+  }
+
+  .card.add{
+    background: transparent;
+    border: 2px dashed #C9BE9F;
+    box-shadow:none;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color: var(--ink-soft);
+  }
+  .card.add::before{ display:none; }
+  .card.add .icon{
+    background:transparent;
+    color: var(--ink-soft);
+    border: 2px dashed #C9BE9F;
+    font-size:1.3rem;
+  }
+  .card.add h2{ font-size:1.2rem; color:var(--ink-soft); }
+
+  footer{
+    text-align:center;
+    margin-top: 3.5rem;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .card, .card .go::after{ transition:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="pin"></div>
+      <h1>디지털 드로잉 클래스</h1>
+      <p>수업에서 쓰는 앱들을 한 곳에 모아뒀어요. 카드를 눌러 이동하세요.</p>
+    </header>
+
+    <div class="board" id="board"></div>
+
+    <footer>수업도구는 계속 추가될 예정입니다. by 모카라떼 선생님</footer>
+  </div>
+
+<script>
+  // 새 앱이 생기면 이 배열에 한 줄만 추가하면 카드가 자동으로 만들어집니다.
+  // color: 카드 아이콘 배경색, icon: 이모지 하나면 충분해요.
+  const apps = [
+    {
+      title: "스틱맨 클래스",
+      desc: "학생들이 스틱맨 캐릭터를 움직여 애니메이션을 만드는 공간이에요.",
+      url: "https://miahwang2000.github.io/stickman/v2/index.html",
+      icon: "🏃",
+      color: "var(--coral)"
+    },
+    {
+      title: "컬러 클래스",
+      desc: "그림에 색을 칠하고 나만의 작품을 완성하는 공간이에요.",
+      url: "https://miahwang2000.github.io/webtoon/color-class.html",
+      icon: "🎨",
+      color: "var(--sky)"
+    },
+    {
+      title: "제출 클래스",
+      desc: "완성한 작품을 올리고 한눈에 모아보는 공간이에요.",
+      url: "https://miahwang2000.github.io/webtoon/upload.html",
+      icon: "📤",
+      color: "var(--leaf)"
+    }
+  ];
+
+  const board = document.getElementById("board");
+  const tilts = [-2, 1.5, -1, 2, -1.5, 1];
+
+  apps.forEach((app, i) => {
+    const a = document.createElement("a");
+    a.href = app.url;
+    a.className = "card";
+    a.style.transform = `rotate(${tilts[i % tilts.length]}deg)`;
+    a.innerHTML = `
+      <div class="icon" style="background:${app.color}">${app.icon}</div>
+      <h2>${app.title}</h2>
+      <p>${app.desc}</p>
+      <span class="go">이동하기</span>
+    `;
+    board.appendChild(a);
+  });
+
+  // 앞으로 늘어날 자리를 살짝 보여주는 안내 카드
+  const addCard = document.createElement("div");
+  addCard.className = "card add";
+  addCard.innerHTML = `
+    <div class="icon">＋</div>
+    <h2>다음 클래스 준비 중</h2>
+  `;
+  board.appendChild(addCard);
+</script>
+</body>
+</html>

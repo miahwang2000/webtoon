@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>디지털 물감 혼합 실험실</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-top:#EAF6FF;
+    --bg-bottom:#DCEFFF;
+    --paper:#FFFDF9;
+    --ink:#2B3A42;
+    --ink-soft:#5A6B73;
+    --yellow:#FFD23F;
+    --coral:#FF6B6B;
+    --mint:#3FCFA0;
+    --sky:#4EA8DE;
+    --wood:#C98A4B;
+    --wood-dark:#9C6530;
+    --wood-light:#E4B078;
+    --shadow-ink: rgba(43,58,66,0.9);
+    --radius-lg: 28px;
+    --radius-md: 20px;
+    --radius-sm: 14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{touch-action:manipulation;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    min-height:100dvh;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255,255,255,0.6) 0, rgba(255,255,255,0) 40%),
+      radial-gradient(circle at 90% 85%, rgba(255,255,255,0.5) 0, rgba(255,255,255,0) 45%),
+      linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    font-family:'Gowun Dodum', sans-serif;
+    color:var(--ink);
+    overflow-x:hidden;
+    -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3,button,.display{font-family:'Jua', sans-serif; font-weight:400;}
+  .app{max-width:920px; margin:0 auto; padding:18px 16px calc(60px + env(safe-area-inset-bottom,0px));}
+  .topbar{display:flex; align-items:center; gap:10px; min-height:44px; margin-bottom:6px;}
+  .back-btn{
+    display:none;
+    align-items:center; gap:6px;
+    background:var(--paper); border:3px solid var(--ink); border-radius:999px;
+    padding:8px 16px; font-family:'Jua',sans-serif; font-size:15px; color:var(--ink);
+    cursor:pointer; box-shadow:4px 4px 0 var(--shadow-ink);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .back-btn:active{transform:translate(2px,2px); box-shadow:2px 2px 0 var(--shadow-ink);}
+  .screen{display:none;}
+  .screen.active{display:block; animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- HOME ---------- */
+  .hero{text-align:center; padding:22px 8px 8px;}
+  .hero .badge{
+    display:inline-block; background:var(--yellow); border:3px solid var(--ink);
+    border-radius:999px; padding:5px 16px; font-family:'Jua',sans-serif; font-size:13px;
+    box-shadow:3px 3px 0 var(--shadow-ink); transform:rotate(-3deg); margin-bottom:14px;
+  }
+  .hero h1{font-size:clamp(28px,6vw,42px); margin:0 0 8px; line-height:1.25;}
+  .hero p{color:var(--ink-soft); font-size:16px; margin:0 auto 26px; max-width:480px;}
+  .home-cards{display:flex; gap:20px; flex-wrap:wrap; justify-content:center;}
+  .mode-card{
+    flex:1 1 300px; max-width:360px; background:var(--paper); border:4px solid var(--ink);
+    border-radius:var(--radius-lg); padding:26px 22px; cursor:pointer; text-align:left;
+    box-shadow:8px 8px 0 var(--shadow-ink); transition: transform .15s ease, box-shadow .15s ease;
+    position:relative; overflow:hidden;
+  }
+  .mode-card:hover{transform:translate(-2px,-2px); box-shadow:10px 10px 0 var(--shadow-ink);}
+  .mode-card:active{transform:translate(3px,3px); box-shadow:4px 4px 0 var(--shadow-ink);}
+  .mode-card .emoji{font-size:46px; display:block; margin-bottom:10px;}
+  .mode-card h2{font-size:22px; margin:0 0 6px;}
+  .mode-card p{margin:0; color:var(--ink-soft); font-size:14.5px; line-height:1.5;}
+  .mode-card.class-mode{border-color:var(--coral);}
+  .mode-card.class-mode .emoji{filter:drop-shadow(2px 2px 0 rgba(0,0,0,.08));}
+  .mode-card.explore-mode{border-color:var(--sky);}
+  .swatch-strip{display:flex; gap:0; margin-top:16px; border-radius:999px; overflow:hidden; border:3px solid var(--ink); height:16px;}
+  .swatch-strip span{flex:1;}
+
+  /* ---------- CARD / SECTION shells ---------- */
+  .panel{
+    background:var(--paper); border:4px solid var(--ink); border-radius:var(--radius-lg);
+    box-shadow:7px 7px 0 var(--shadow-ink); padding:20px; margin-bottom:20px;
+  }
+  .panel-title{display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 14px;}
+
+  /* ---------- WHEEL ---------- */
+  .wheel-wrap{display:flex; justify-content:center; margin:6px 0 4px;}
+  .wheel-svg{width:min(82vw,330px); height:min(82vw,330px); touch-action:manipulation;}
+  .wheel-svg path{cursor:pointer; transition: filter .1s ease, transform .1s ease; transform-origin:200px 200px;}
+  .wheel-svg path:hover{filter:brightness(1.08);}
+  .wheel-svg path.selected{filter:brightness(1.15); stroke:var(--ink); stroke-width:5;}
+  .wheel-svg .blank-seg{fill:#E9EEF1;}
+  .wheel-svg text.qmark{font-family:'Jua',sans-serif; fill:var(--ink-soft); pointer-events:none; font-size:22px;}
+  .wheel-center-label{font-family:'Jua',sans-serif; font-size:13px; fill:var(--ink); pointer-events:none;}
+
+  .hint-text{text-align:center; color:var(--ink-soft); font-size:14.5px; margin:6px 0 2px;}
+
+  /* ---------- INFO CARD (result of tap) ---------- */
+  .info-card{
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center;
+    background:#F6FBFF; border:3px dashed var(--sky); border-radius:var(--radius-md);
+    padding:16px 18px; margin-top:14px;
+  }
+  .info-card.empty{color:var(--ink-soft); font-size:14.5px; justify-content:center; border-style:dashed;}
+  .swatch-lg{width:64px; height:64px; border-radius:50%; border:4px solid var(--ink); box-shadow:3px 3px 0 var(--shadow-ink); flex-shrink:0;}
+  .info-main .label{font-size:12.5px; color:var(--ink-soft); margin:0 0 2px;}
+  .info-main .name{font-size:20px; margin:0 0 8px;}
+  .recipe-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .mini-swatch{display:inline-flex; align-items:center; gap:6px; background:#fff; border:2px solid var(--ink); border-radius:999px; padding:4px 10px 4px 6px; font-size:14px;}
+  .mini-dot{width:18px; height:18px; border-radius:50%; border:2px solid var(--ink); display:inline-block;}
+  .plus{font-family:'Jua',sans-serif; color:var(--ink-soft);}
+  .primary-note{font-size:14px; color:var(--ink-soft);}
+
+  /* ---------- CLASS MODE FLOW ---------- */
+  .make-btn-row{display:flex; justify-content:center; gap:12px; margin-top:14px; flex-wrap:wrap;}
+  .btn{
+    font-family:'Jua',sans-serif; font-size:16px; border:3px solid var(--ink); border-radius:999px;
+    padding:12px 24px; min-height:44px; cursor:pointer; box-shadow:5px 5px 0 var(--shadow-ink);
+    transition: transform .12s ease, box-shadow .12s ease; background:var(--yellow); color:var(--ink);
+    touch-action:manipulation;
+  }
+  .btn:active{transform:translate(3px,3px); box-shadow:2px 2px 0 var(--shadow-ink);}
+  .btn.secondary{background:#fff;}
+  .btn.coral{background:var(--coral); color:#fff;}
+  .btn.mint{background:var(--mint); color:#fff;}
+  .btn:disabled{opacity:.45; cursor:not-allowed; box-shadow:3px 3px 0 var(--shadow-ink);}
+
+  .mix-stage{display:none;}
+  .mix-stage.active{display:block;}
+
+  .selection-row{display:flex; align-items:center; justify-content:center; gap:16px; margin:16px 0;}
+  .slot{
+    width:74px; height:74px; border-radius:50%; border:4px dashed var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; background:#fff;
+    font-family:'Jua',sans-serif; color:var(--ink-soft); font-size:26px; position:relative;
+  }
+  .slot.filled{border-style:solid; border-color:var(--ink); box-shadow:3px 3px 0 var(--shadow-ink);}
+  .slot .clear-x{position:absolute; top:-9px; right:-9px; width:26px; height:26px; background:var(--coral); color:#fff; border-radius:50%; border:2px solid var(--ink); font-size:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; touch-action:manipulation;}
+  .plus-sep{font-family:'Jua',sans-serif; font-size:26px; color:var(--ink-soft);}
+
+  /* palette tray */
+  .tray{
+    background:linear-gradient(180deg, var(--wood-light), var(--wood) 55%, var(--wood-dark));
+    border:4px solid var(--ink); border-radius:var(--radius-lg); padding:18px 14px 10px;
+    box-shadow: inset 0 3px 10px rgba(0,0,0,.18), 7px 7px 0 var(--shadow-ink);
+    margin-top:16px;
+  }
+  .tray-label{color:#fff; font-family:'Jua',sans-serif; font-size:13px; text-shadow:1px 1px 0 rgba(0,0,0,.3); margin:0 0 10px; text-align:center;}
+  .tray-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(44px,1fr)); gap:12px 10px; padding-bottom:8px;}
+  .blob{
+    aspect-ratio:1/1; border-radius:58% 42% 63% 37% / 41% 55% 45% 59%;
+    position:relative; cursor:pointer; border:2px solid rgba(0,0,0,.25);
+    box-shadow: 2px 3px 5px rgba(0,0,0,.35), inset -3px -3px 6px rgba(0,0,0,.25), inset 3px 3px 8px rgba(255,255,255,.5);
+    transition: transform .1s ease; touch-action:manipulation;
+  }
+  .blob::after{
+    content:''; position:absolute; top:14%; left:18%; width:35%; height:22%;
+    background:rgba(255,255,255,.55); border-radius:50%; filter:blur(1.5px); transform:rotate(-20deg);
+  }
+  .blob:active, .blob.pressed{transform:scale(.88);}
+  .blob.chosen{outline:4px solid var(--ink); outline-offset:2px;}
+
+  /* canvas mixing area */
+  .canvas-card{background:#fff; border:4px solid var(--ink); border-radius:var(--radius-lg); box-shadow:7px 7px 0 var(--shadow-ink); padding:14px; margin-top:16px; text-align:center;}
+  #mixCanvas{width:100%; max-width:420px; height:auto; aspect-ratio:16/11; background:#F7FBFF; border-radius:var(--radius-md); border:2px dashed #cfe4f5;}
+  .mix-result{margin-top:12px; display:none; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap;}
+  .mix-result.show{display:flex;}
+  .mix-result p{margin:0; font-size:15px;}
+
+  /* my palette gallery */
+  .gallery{display:flex; gap:12px; flex-wrap:wrap; padding-top:6px;}
+  .gallery-item{width:78px; text-align:center; font-size:12px; color:var(--ink-soft);}
+  .gallery-swatch{width:52px; height:52px; border-radius:50%; border:3px solid var(--ink); margin:0 auto 4px; box-shadow:2px 2px 0 var(--shadow-ink);}
+  .gallery-empty{color:var(--ink-soft); font-size:13.5px; padding:8px 0;}
+
+  .toast{
+    position:fixed; left:50%; bottom:calc(26px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; font-family:'Jua',sans-serif; font-size:14px;
+    padding:12px 22px; border-radius:999px; opacity:0; pointer-events:none; transition:.28s ease; z-index:50;
+    box-shadow:0 6px 18px rgba(0,0,0,.25); max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  @media (max-width:520px){
+    .home-cards{flex-direction:column; align-items:stretch;}
+    .mode-card{max-width:none;}
+    .info-card{flex-direction:column; text-align:center;}
+  }
+  @media (max-width:400px){
+    .app{padding-left:12px; padding-right:12px;}
+    .panel{padding:16px 14px;}
+    .tray{padding:14px 10px 8px;}
+    .tray-grid{grid-template-columns:repeat(auto-fill, minmax(40px,1fr)); gap:10px 8px;}
+    .selection-row{gap:10px;}
+    .slot{width:64px; height:64px; font-size:22px;}
+    .btn{padding:11px 18px; font-size:15px;}
+    .hero h1{font-size:26px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <button class="back-btn" id="backBtn">← 처음으로</button>
+  </div>
+
+  <!-- ================= HOME ================= -->
+  <section class="screen active" id="screen-home">
+    <div class="hero">
+      <span class="badge">🖌️ 미술 시간 체험 도구</span>
+      <h1>디지털 물감 혼합 실험실</h1>
+      <p>색을 눌러 보고, 물감을 섞어 보고, 새로운 색이 태어나는 순간을 직접 만나 보세요.</p>
+    </div>
+    <div class="home-cards">
+      <div class="mode-card class-mode" id="goClass">
+        <span class="emoji">🎨</span>
+        <h2>수업 시작</h2>
+        <p>색상 랜덤뽑기 활동으로 20색상환을 몸으로 익혀요. 물감을 골라 직접 섞어 보아요.</p>
+        <div class="swatch-strip" id="stripClass"></div>
+      </div>
+      <div class="mode-card explore-mode" id="goExplore">
+        <span class="emoji">🌈</span>
+        <h2>색상만 보기</h2>
+        <p>20색상환을 자유롭게 눌러보며 어떤 물감으로 만들어지는 색인지 살펴보아요.</p>
+        <div class="swatch-strip" id="stripExplore"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EXPLORE ================= -->
+  <section class="screen" id="screen-explore">
+    <div class="panel">
+      <h2 class="panel-title">🌈 20색상환 탐색</h2>
+      <p class="hint-text">색상환에서 궁금한 색을 눌러 보세요!</p>
+      <div class="wheel-wrap"><svg class="wheel-svg" id="wheelExplore" viewBox="0 0 400 400"></svg></div>
+      <div class="info-card empty" id="exploreInfo">👆 아직 고른 색이 없어요. 색상환을 눌러 보세요!</div>
+    </div>
+  </section>
+
+  <!-- ================= CLASS ================= -->
+  <section class="screen" id="screen-class">
+
+    <div class="panel" id="classWheelPanel">
+      <h2 class="panel-title">🎲 색상 랜덤뽑기</h2>
+      <p class="hint-text" id="classHint">버튼을 누르면 색상환에서 한 가지 색이 사라져요. 어떤 색인지 맞혀 볼까요?</p>
+      <div class="wheel-wrap"><svg class="wheel-svg" id="wheelClass" viewBox="0 0 400 400"></svg></div>
+      <div class="info-card empty" id="classWheelInfo">👆 색을 눌러 보면 어떤 색인지 알려줘요!</div>
+      <div class="make-btn-row">
+        <button class="btn coral" id="makeColorBtn">🎲 색상 랜덤뽑기</button>
+      </div>
+    </div>
+
+    <div class="panel mix-stage" id="mixStage">
+      <h2 class="panel-title">🧪 물감 섞기</h2>
+      <div class="info-card" id="targetInfo"></div>
+
+      <div class="tray">
+        <p class="tray-label">🎨 아래 팔레트에서 물감 두 가지를 골라 보세요 (원하는 대로 바꿔도 돼요!)</p>
+        <div class="tray-grid" id="paletteTray"></div>
+      </div>
+
+      <div class="selection-row">
+        <div class="slot" id="slot1">＋</div>
+        <span class="plus-sep">+</span>
+        <div class="slot" id="slot2">＋</div>
+      </div>
+
+      <div class="make-btn-row">
+        <button class="btn mint" id="mixBtn" disabled>🌀 섞기</button>
+        <button class="btn secondary" id="resetPickBtn">🔄 다시 고르기</button>
+      </div>
+
+      <div class="canvas-card">
+        <canvas id="mixCanvas" width="420" height="290"></canvas>
+        <div class="mix-result" id="mixResult">
+          <div class="swatch-lg" id="resultSwatch"></div>
+          <div class="info-main">
+            <p class="label">완성된 색</p>
+            <p class="name" id="resultName" style="font-family:'Jua',sans-serif;"></p>
+          </div>
+        </div>
+        <div class="make-btn-row" id="addRow" style="display:none;">
+          <button class="btn" id="addToPaletteBtn">🖼️ 색상판에 추가</button>
+          <button class="btn secondary" id="nextColorBtn">🔄 다른 색 만들기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">🖼️ 내가 만든 색</h2>
+      <div class="gallery" id="gallery">
+        <div class="gallery-empty">아직 만든 색이 없어요. 색을 섞어서 색상판을 채워 보세요!</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ 20색상환 데이터 (RGB 계산이 아닌 색상환 기반 혼합 규칙) ============ */
+/* 색상/명칭/순서는 먼셀식 20색상환(R,yR,YR,rY,Y,gY,GY,yG,G,bG,BG,gB,B,pB,PB,bP,P,rP,RP,pR) 참고 자료를 그대로 따름.
+   혼합 규칙(parents)만 초등 미술 3원색 이론(빨강·노랑·파랑)에 맞춰 별도로 부여: 원색은 recipe 없음,
+   2차색(주황·녹색·보라)은 두 원색의 조합, 그 외 색은 색상환에서 바로 옆에 이웃한 두 색의 조합으로 정의함. */
+const COLORS = [
+  {id:1,  name:'빨강',     code:'R',  hex:'#f50606', parents:null},
+  {id:2,  name:'다홍',     code:'yR', hex:'#ec7606', parents:[1,3]},
+  {id:3,  name:'주황',     code:'YR', hex:'#e9a406', parents:[1,5]},
+  {id:4,  name:'귤색',     code:'rY', hex:'#f0da06', parents:[3,5]},
+  {id:5,  name:'노랑',     code:'Y',  hex:'#fdf216', parents:null},
+  {id:6,  name:'노랑연두', code:'gY', hex:'#f1ec06', parents:[5,7]},
+  {id:7,  name:'연두',     code:'GY', hex:'#aad210', parents:[6,8]},
+  {id:8,  name:'풀색',     code:'yG', hex:'#3ebd1a', parents:[7,9]},
+  {id:9,  name:'녹색',     code:'G',  hex:'#06ab24', parents:[5,13]},
+  {id:10, name:'초록',     code:'bG', hex:'#06935d', parents:[9,11]},
+  {id:11, name:'청록',     code:'BG', hex:'#069ab6', parents:[10,12]},
+  {id:12, name:'바다색',   code:'gB', hex:'#06b7f5', parents:[11,13]},
+  {id:13, name:'파랑',     code:'B',  hex:'#069bea', parents:null},
+  {id:14, name:'감청',     code:'pB', hex:'#066abe', parents:[13,15]},
+  {id:15, name:'남색',     code:'PB', hex:'#064ba9', parents:[14,16]},
+  {id:16, name:'남보라',   code:'bP', hex:'#5c0c80', parents:[15,17]},
+  {id:17, name:'보라',     code:'P',  hex:'#49319a', parents:[13,1]},
+  {id:18, name:'붉은보라', code:'rP', hex:'#a73c9b', parents:[17,19]},
+  {id:19, name:'자주',     code:'RP', hex:'#b43d74', parents:[18,20]},
+  {id:20, name:'연지',     code:'pR', hex:'#c75486', parents:[19,1]},
+];
+const byId = id => COLORS.find(c=>c.id===id);
+const mixableIds = COLORS.filter(c=>c.parents).map(c=>c.id);
+
+function emojiFor(c){
+  if(c.id<=2 || c.id>=19) return '🔴';
+  if(c.id<=4) return '🟠';
+  if(c.id<=6) return '🟡';
+  if(c.id<=9) return '🟢';
+  if(c.id<=13) return '🔵';
+  return '🟣';
+}
+
+/* ============ 색상 변환 유틸 ============ */
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  return { r: parseInt(hex.substr(0,2),16), g: parseInt(hex.substr(2,2),16), b: parseInt(hex.substr(4,2),16) };
+}
+function rgbToHex(r,g,b){
+  const h = n => Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0');
+  return '#'+h(r)+h(g)+h(b);
+}
+function rgbToHsl(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h,s,l=(max+min)/2;
+  if(max===min){h=0;s=0;}
+  else{
+    const d=max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h=(g-b)/d + (g<b?6:0); break;
+      case g: h=(b-r)/d + 2; break;
+      default: h=(r-g)/d + 4;
+    }
+    h*=60;
+  }
+  return {h,s,l};
+}
+function hslToRgb(h,s,l){
+  h = ((h%360)+360)%360;
+  const c = (1-Math.abs(2*l-1))*s;
+  const x = c*(1-Math.abs((h/60)%2-1));
+  const m = l-c/2;
+  let r,g,b;
+  if(h<60){r=c;g=x;b=0;} else if(h<120){r=x;g=c;b=0;} else if(h<180){r=0;g=c;b=x;}
+  else if(h<240){r=0;g=x;b=c;} else if(h<300){r=x;g=0;b=c;} else {r=c;g=0;b=x;}
+  return {r:(r+m)*255, g:(g+m)*255, b:(b+m)*255};
+}
+
+/* 두 물감을 섞었을 때의 결과색 계산 (색상환 각도 평균 + 채도/명도 보정) */
+function mixPaint(hexA, hexB){
+  const a = rgbToHsl(...Object.values(hexToRgb(hexA)));
+  const b = rgbToHsl(...Object.values(hexToRgb(hexB)));
+  // 색상은 원형이므로 벡터 평균으로 계산
+  const rad = deg => deg*Math.PI/180;
+  const ax = Math.cos(rad(a.h)), ay = Math.sin(rad(a.h));
+  const bx = Math.cos(rad(b.h)), by = Math.sin(rad(b.h));
+  let h = Math.atan2(ay+by, ax+bx) * 180/Math.PI;
+  if(h<0) h+=360;
+  const s = Math.min(0.72, Math.max(0.5, (a.s+b.s)/2 - 0.06));
+  const l = Math.min(0.58, Math.max(0.40, (a.l+b.l)/2));
+  const rgb = hslToRgb(h, s, l);
+  return { hex: rgbToHex(rgb.r,rgb.g,rgb.b), h, s, l };
+}
+
+function nearestColorMatch(h){
+  let best=null, bestDist=999;
+  COLORS.forEach(c=>{
+    const ch = rgbToHsl(...Object.values(hexToRgb(c.hex))).h;
+    let d = Math.abs(ch-h); if(d>180) d=360-d;
+    if(d<bestDist){bestDist=d; best=c;}
+  });
+  return { color: bestDist<=13 ? best : null, closest: best, dist: bestDist };
+}
+function nearestColorName(h){
+  const m = nearestColorMatch(h);
+  return m.color ? m.color.name : null;
+}
+
+/* ============ 색상환(SVG) 렌더링 ============ */
+function polarToCartesian(cx,cy,r,angleDeg){
+  const a=(angleDeg-90)*Math.PI/180;
+  return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)};
+}
+function arcPath(cx,cy,rInner,rOuter,startAngle,endAngle){
+  const p1=polarToCartesian(cx,cy,rOuter,endAngle);
+  const p2=polarToCartesian(cx,cy,rOuter,startAngle);
+  const p3=polarToCartesian(cx,cy,rInner,startAngle);
+  const p4=polarToCartesian(cx,cy,rInner,endAngle);
+  const large = endAngle-startAngle<=180?0:1;
+  return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${large} 0 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} L ${p3.x.toFixed(2)} ${p3.y.toFixed(2)} A ${rInner} ${rInner} 0 ${large} 1 ${p4.x.toFixed(2)} ${p4.y.toFixed(2)} Z`;
+}
+
+function renderWheel(svgEl, opts){
+  opts = opts || {};
+  const blankId = opts.blankId || null;
+  const onSelect = opts.onSelect || function(){};
+  svgEl.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  const cx=200, cy=200, rOuter=185, rInner=68;
+  const step=18;
+
+  COLORS.forEach((c,i)=>{
+    const start=i*step, end=start+step;
+    const path=document.createElementNS(ns,'path');
+    path.setAttribute('d', arcPath(cx,cy,rInner,rOuter,start,end));
+    const isBlank = c.id===blankId;
+    path.setAttribute('fill', isBlank ? '#E9EEF1' : c.hex);
+    if(isBlank) path.classList.add('blank-seg');
+    path.setAttribute('stroke', '#FFFDF9');
+    path.setAttribute('stroke-width','3');
+    path.dataset.id=c.id;
+    path.addEventListener('click',()=>onSelect(c.id, path));
+    svgEl.appendChild(path);
+
+    if(isBlank){
+      const mid=(start+end)/2;
+      const p=polarToCartesian(cx,cy,(rInner+rOuter)/2,mid);
+      const txt=document.createElementNS(ns,'text');
+      txt.setAttribute('x',p.x); txt.setAttribute('y',p.y+7);
+      txt.setAttribute('text-anchor','middle');
+      txt.classList.add('qmark');
+      txt.textContent='?';
+      txt.style.pointerEvents='none';
+      svgEl.appendChild(txt);
+    }
+  });
+
+  // 중심 원
+  const center=document.createElementNS(ns,'circle');
+  center.setAttribute('cx',cx); center.setAttribute('cy',cy); center.setAttribute('r',rInner-4);
+  center.setAttribute('fill','#FFFDF9'); center.setAttribute('stroke','#2B3A42'); center.setAttribute('stroke-width','4');
+  svgEl.insertBefore(center, svgEl.firstChild.nextSibling); // just append is fine too
+  svgEl.appendChild(center);
+  const label=document.createElementNS(ns,'text');
+  label.setAttribute('x',cx); label.setAttribute('y',cy+6);
+  label.setAttribute('text-anchor','middle');
+  label.classList.add('wheel-center-label');
+  label.textContent='🖌️';
+  label.style.fontSize='30px';
+  svgEl.appendChild(label);
+
+  // 바깥 테두리
+  const outline=document.createElementNS(ns,'circle');
+  outline.setAttribute('cx',cx); outline.setAttribute('cy',cy); outline.setAttribute('r',rOuter);
+  outline.setAttribute('fill','none'); outline.setAttribute('stroke','#2B3A42'); outline.setAttribute('stroke-width','4');
+  svgEl.appendChild(outline);
+}
+
+/* ============ 화면 전환 ============ */
+const screens = {
+  home: document.getElementById('screen-home'),
+  explore: document.getElementById('screen-explore'),
+  class: document.getElementById('screen-class'),
+};
+const backBtn = document.getElementById('backBtn');
+function showScreen(name){
+  Object.values(screens).forEach(s=>s.classList.remove('active'));
+  screens[name].classList.add('active');
+  backBtn.style.display = name==='home' ? 'none' : 'inline-flex';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+backBtn.addEventListener('click', ()=>showScreen('home'));
+
+/* 홈 화면 색 미리보기 스트립 */
+function buildStrip(el){
+  COLORS.forEach(c=>{
+    const s=document.createElement('span');
+    s.style.background=c.hex;
+    el.appendChild(s);
+  });
+}
+buildStrip(document.getElementById('stripClass'));
+buildStrip(document.getElementById('stripExplore'));
+
+document.getElementById('goClass').addEventListener('click', ()=>{ showScreen('class'); resetClassFlow(); });
+document.getElementById('goExplore').addEventListener('click', ()=>{ showScreen('explore'); });
+
+/* ============ 색상만 보기 모드 ============ */
+const wheelExplore = document.getElementById('wheelExplore');
+const exploreInfo = document.getElementById('exploreInfo');
+
+function renderInfoCard(container, colorId){
+  const c = byId(colorId);
+  container.classList.remove('empty');
+  if(!c.parents){
+    container.innerHTML = `
+      <div class="swatch-lg" style="background:${c.hex}"></div>
+      <div class="info-main">
+        <p class="label">만들 색</p>
+        <p class="name">${emojiFor(c)} ${c.name} <span style="font-size:13px;color:var(--ink-soft);">(${c.code})</span></p>
+        <p class="primary-note">✨ 원색이에요! 다른 색을 섞지 않고 바로 사용해요.</p>
+      </div>`;
+  } else {
+    const p1=byId(c.parents[0]), p2=byId(c.parents[1]);
+    container.innerHTML = `
+      <div class="swatch-lg" style="background:${c.hex}"></div>
+      <div class="info-main">
+        <p class="label">만들 색</p>
+        <p class="name">${emojiFor(c)} ${c.name} <span style="font-size:13px;color:var(--ink-soft);">(${c.code})</span></p>
+        <div class="recipe-row">
+          <span class="mini-swatch"><span class="mini-dot" style="background:${p1.hex}"></span>${p1.name}(${p1.code})</span>
+          <span class="plus">+</span>
+          <span class="mini-swatch"><span class="mini-dot" style="background:${p2.hex}"></span>${p2.name}(${p2.code})</span>
+        </div>
+      </div>`;
+  }
+}
+
+renderWheel(wheelExplore, {
+  onSelect(id, pathEl){
+    wheelExplore.querySelectorAll('path').forEach(p=>p.classList.remove('selected'));
+    pathEl.classList.add('selected');
+    renderInfoCard(exploreInfo, id);
+  }
+});
+
+/* ============ 수업 시작 모드 ============ */
+const wheelClass = document.getElementById('wheelClass');
+const classWheelInfo = document.getElementById('classWheelInfo');
+const classWheelPanel = document.getElementById('classWheelPanel');
+const mixStage = document.getElementById('mixStage');
+const classHint = document.getElementById('classHint');
+const makeColorBtn = document.getElementById('makeColorBtn');
+const targetInfo = document.getElementById('targetInfo');
+const paletteTray = document.getElementById('paletteTray');
+const slot1 = document.getElementById('slot1');
+const slot2 = document.getElementById('slot2');
+const mixBtn = document.getElementById('mixBtn');
+const resetPickBtn = document.getElementById('resetPickBtn');
+const mixResult = document.getElementById('mixResult');
+const resultSwatch = document.getElementById('resultSwatch');
+const resultName = document.getElementById('resultName');
+const addRow = document.getElementById('addRow');
+const addToPaletteBtn = document.getElementById('addToPaletteBtn');
+const nextColorBtn = document.getElementById('nextColorBtn');
+const gallery = document.getElementById('gallery');
+const canvas = document.getElementById('mixCanvas');
+const ctx = canvas.getContext('2d');
+
+let currentTargetId = null;
+let picked = [null, null];
+let lastMix = null; // {hex, name}
+let myColors = []; // 세션 내 저장 (localStorage 사용하지 않음)
+
+function resetClassFlow(){
+  currentTargetId = null;
+  classWheelPanel.style.display='block';
+  mixStage.classList.remove('active');
+  classHint.textContent='색상환의 색을 눌러 살펴보거나, 버튼을 눌러 무작위로 색깔 문제를 뽑아 보세요.';
+  classWheelInfo.classList.add('empty');
+  classWheelInfo.innerHTML = '👆 색을 눌러 보면 어떤 색인지 알려줘요!';
+  renderWheel(wheelClass, {
+    onSelect(id, pathEl){
+      wheelClass.querySelectorAll('path').forEach(p=>p.classList.remove('selected'));
+      pathEl.classList.add('selected');
+      renderInfoCard(classWheelInfo, id);
+    }
+  });
+  makeColorBtn.disabled=false;
+  makeColorBtn.textContent='🎲 색상 랜덤뽑기';
+}
+
+makeColorBtn.addEventListener('click', ()=>{
+  const id = mixableIds[Math.floor(Math.random()*mixableIds.length)];
+  currentTargetId = id;
+  classWheelInfo.classList.add('empty');
+  classWheelInfo.innerHTML = '👆 색상환 속 물음표(❓)를 눌러 정체를 확인해 보세요! (다른 색을 눌러 보아도 좋아요)';
+  renderWheel(wheelClass, {
+    blankId:id,
+    onSelect(clickedId, pathEl){
+      if(clickedId===id){ revealTarget(id); return; }
+      wheelClass.querySelectorAll('path').forEach(p=>p.classList.remove('selected'));
+      pathEl.classList.add('selected');
+      renderInfoCard(classWheelInfo, clickedId);
+    }
+  });
+  classHint.textContent = '색상환 속 물음표(❓)를 눌러 정체를 확인해 보세요!';
+  makeColorBtn.textContent='🔄 다시 뽑기';
+});
+
+function revealTarget(id){
+  const c = byId(id);
+  buildPaletteTray();
+  picked=[null,null];
+  updateSlots();
+  renderTargetGoal(c);
+  mixStage.classList.add('active');
+  mixStage.scrollIntoView({behavior:'smooth', block:'start'});
+  clearCanvas();
+  mixResult.classList.remove('show');
+  addRow.style.display='none';
+  // 정답(이름·추천 조합)은 바로 알려주지 않는다. 학생이 직접 두 물감을 골라 섞어 본 뒤에 공개한다.
+}
+
+/* 섞기 전: 목표색 이름은 알려주되, 물감 조합(정답 레시피)은 숨긴다 */
+function renderTargetGoal(c){
+  targetInfo.classList.remove('empty');
+  targetInfo.innerHTML = `
+    <div class="swatch-lg" style="background:${c.hex}"></div>
+    <div class="info-main">
+      <p class="label">🎯 이 색을 만들어 보세요!</p>
+      <p class="name">${emojiFor(c)} ${c.name} <span style="font-size:13px;color:var(--ink-soft);">(${c.code})</span></p>
+      <p class="primary-note">아래 팔레트에서 물감 두 가지를 골라 섞어서 똑같은 색을 만들어 보아요.</p>
+    </div>`;
+}
+
+/* 섞은 뒤: 정답 공개 + 정답/오답 판정 */
+function renderTargetReveal(c, isCorrect){
+  targetInfo.classList.remove('empty');
+  const p1=byId(c.parents[0]), p2=byId(c.parents[1]);
+  const badge = isCorrect
+    ? `<p class="primary-note" style="color:#1a8f4c; font-family:'Jua',sans-serif; font-size:16px;">🎉 정답이에요!</p>`
+    : `<p class="primary-note" style="color:#e0563a; font-family:'Jua',sans-serif; font-size:16px;">🙅 아쉬워요, 다른 색이 되었어요!</p>`;
+  targetInfo.innerHTML = `
+    <div class="swatch-lg" style="background:${c.hex}"></div>
+    <div class="info-main">
+      <p class="label">정답 색</p>
+      <p class="name">${emojiFor(c)} ${c.name} <span style="font-size:13px;color:var(--ink-soft);">(${c.code})</span></p>
+      ${badge}
+      <p class="label" style="margin-top:6px;">정답 물감 조합</p>
+      <div class="recipe-row">
+        <span class="mini-swatch"><span class="mini-dot" style="background:${p1.hex}"></span>${p1.name}(${p1.code})</span>
+        <span class="plus">+</span>
+        <span class="mini-swatch"><span class="mini-dot" style="background:${p2.hex}"></span>${p2.name}(${p2.code})</span>
+      </div>
+    </div>`;
+}
+
+function buildPaletteTray(){
+  paletteTray.innerHTML='';
+  COLORS.forEach(c=>{
+    const b=document.createElement('div');
+    b.className='blob';
+    b.style.background = `radial-gradient(circle at 32% 28%, ${lighten(c.hex,18)}, ${c.hex} 55%, ${darken(c.hex,10)})`;
+    b.dataset.id=c.id;
+    b.title=c.name+"("+c.code+")";
+    b.addEventListener('click', ()=>onPaintPick(c.id, b));
+    paletteTray.appendChild(b);
+  });
+}
+function lighten(hex,amt){
+  const {r,g,b}=hexToRgb(hex);
+  return rgbToHex(r+amt*2, g+amt*2, b+amt*2);
+}
+function darken(hex,amt){
+  const {r,g,b}=hexToRgb(hex);
+  return rgbToHex(r-amt*2, g-amt*2, b-amt*2);
+}
+
+function onPaintPick(id, blobEl){
+  blobEl.classList.add('pressed');
+  setTimeout(()=>blobEl.classList.remove('pressed'),120);
+
+  const idx = picked.indexOf(id);
+  if(idx>-1){ picked[idx]=null; updateSlots(); return; }
+
+  const emptyIdx = picked.indexOf(null);
+  if(emptyIdx===-1){ picked[0]=id; } else { picked[emptyIdx]=id; }
+  updateSlots();
+}
+
+function updateSlots(){
+  [slot1,slot2].forEach((slotEl, i)=>{
+    slotEl.innerHTML='';
+    slotEl.classList.remove('filled');
+    if(picked[i]){
+      const c=byId(picked[i]);
+      slotEl.classList.add('filled');
+      slotEl.style.background=c.hex;
+      const x=document.createElement('div');
+      x.className='clear-x'; x.textContent='✕';
+      x.addEventListener('click',(e)=>{ e.stopPropagation(); picked[i]=null; updateSlots(); });
+      slotEl.appendChild(x);
+    } else {
+      slotEl.style.background='#fff';
+      slotEl.textContent='＋';
+    }
+  });
+  paletteTray.querySelectorAll('.blob').forEach(b=>{
+    b.classList.toggle('chosen', picked.includes(Number(b.dataset.id)));
+  });
+  mixBtn.disabled = !(picked[0] && picked[1]);
+  mixResult.classList.remove('show');
+  addRow.style.display='none';
+}
+
+resetPickBtn.addEventListener('click', ()=>{
+  picked=[null,null]; updateSlots(); clearCanvas();
+});
+
+/* ---- Canvas 혼합 애니메이션 ---- */
+function clearCanvas(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+function rgbLerp(hexA,hexB,t){
+  const a=hexToRgb(hexA), b=hexToRgb(hexB);
+  return rgbToHex(a.r+(b.r-a.r)*t, a.g+(b.g-a.g)*t, a.b+(b.b-a.b)*t);
+}
+function drawGlossyBlob(x,y,r,hex, sx=1, sy=1, rot=0){
+  ctx.save();
+  ctx.translate(x,y);
+  if(rot) ctx.rotate(rot);
+  if(sx!==1 || sy!==1) ctx.scale(sx,sy);
+  const grad=ctx.createRadialGradient(-r*0.3,-r*0.35,r*0.1, 0,0,r);
+  grad.addColorStop(0, lighten(hex,25));
+  grad.addColorStop(0.6, hex);
+  grad.addColorStop(1, darken(hex,15));
+  ctx.beginPath();
+  ctx.ellipse(0,r*0.15,r,r*0.9,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.08)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.fillStyle=grad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-r*0.32,-r*0.35,r*0.28,r*0.16,-0.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.55)';
+  ctx.fill();
+  ctx.restore();
+}
+/* 물감 한 획(스트로크) - 팔레트 나이프로 짓이길 때 생기는 마블링 결. multiply로 겹치면 실제 물감처럼 탁하게 섞인다 */
+function drawStreak(x,y,angle,length,width,hex,alpha){
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.globalCompositeOperation='multiply';
+  ctx.translate(x,y);
+  ctx.rotate(angle);
+  const grad=ctx.createLinearGradient(-length/2,0,length/2,0);
+  grad.addColorStop(0, darken(hex,4));
+  grad.addColorStop(0.5, lighten(hex,6));
+  grad.addColorStop(1, darken(hex,4));
+  ctx.beginPath();
+  ctx.ellipse(0,0,length/2,width/2,0,0,Math.PI*2);
+  ctx.fillStyle=grad;
+  ctx.fill();
+  ctx.restore();
+}
+/* 완전히 섞이기 직전, 아직 균일하지 않은 물감 얼룩 질감 */
+function drawPaintMottle(x,y,r,hex,strength){
+  if(strength<=0) return;
+  ctx.save();
+  ctx.globalCompositeOperation='multiply';
+  for(let i=0;i<9;i++){
+    const ang=(i/9)*Math.PI*2 + i*0.7;
+    const rad=Math.random()*r*0.55;
+    const mx=x+Math.cos(ang)*rad, my=y+Math.sin(ang)*rad*0.85;
+    const tone = i%2===0 ? darken(hex,14) : lighten(hex,12);
+    ctx.globalAlpha = 0.22*strength;
+    ctx.beginPath();
+    ctx.ellipse(mx,my, r*0.2, r*0.12, ang, 0, Math.PI*2);
+    ctx.fillStyle=tone;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function playMixAnimation(hexA,hexB,resultHex,onDone){
+  const W=canvas.width, H=canvas.height;
+  const cx=W/2, cy=H/2;
+  const startA={x:W*0.24,y:H*0.48}, startB={x:W*0.76,y:H*0.48};
+  const duration=2100;
+  const t0=performance.now();
+
+  // 마블링(소용돌이) 스트로크 씨앗을 미리 만들어 매 프레임 일관되게 회전시킨다
+  const seeds=[];
+  const seedCount=30;
+  for(let i=0;i<seedCount;i++){
+    seeds.push({
+      baseAngle: (i/seedCount)*Math.PI*2 + (Math.random()-0.5)*0.35,
+      radiusFactor: 0.3+Math.random()*0.6,
+      lenFactor: 0.55+Math.random()*0.55,
+      widFactor: 0.32+Math.random()*0.38,
+      side: i%2===0 ? 'a' : 'b',
+      spinSpeed: 1.1+Math.random()*1.1,
+      wobble: Math.random()*Math.PI*2
+    });
+  }
+
+  function frame(now){
+    const elapsed = now-t0;
+    const t = Math.min(1, elapsed/duration);
+    clearCanvas();
+
+    // 작업대 그림자
+    ctx.beginPath();
+    ctx.ellipse(cx,H*0.86,W*0.36,H*0.06,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(43,58,66,0.06)';
+    ctx.fill();
+
+    if(t<0.3){
+      /* 1단계: 물감 두 덩이가 서로 다가가며 눌린다(스쿼시) */
+      const p=t/0.3;
+      const flatten = p*0.55;
+      const ax=lerpNum(startA.x,cx-16,p), ay=startA.y - p*4;
+      const bx=lerpNum(startB.x,cx+16,p), by=startB.y - p*4;
+      drawGlossyBlob(ax,ay,44, hexA, 1+flatten*0.32, 1-flatten*0.22, -p*0.12);
+      drawGlossyBlob(bx,by,44, hexB, 1+flatten*0.32, 1-flatten*0.22,  p*0.12);
+    } else if(t<0.82){
+      /* 2단계: 팔레트 나이프로 짓이기듯 마블링하며 섞인다 (multiply로 실제 물감처럼 탁하게) */
+      const p=(t-0.3)/0.52; // 0..1
+      const blobR = 44 + p*16;
+      const baseColor = rgbLerp(rgbLerp(hexA,hexB,0.5), resultHex, Math.min(1,p*1.15));
+      drawGlossyBlob(cx,cy, blobR, baseColor);
+
+      seeds.forEach(s=>{
+        const spin = elapsed*0.0017*s.spinSpeed;
+        const ang = s.baseAngle + spin*(1-p*0.45);
+        const rad = blobR * s.radiusFactor * (1-p*0.6);
+        const sx = cx+Math.cos(ang)*rad;
+        const sy = cy+Math.sin(ang)*rad*0.86;
+        const rawColor = s.side==='a' ? hexA : hexB;
+        const streakColor = rgbLerp(rawColor, resultHex, Math.min(1, p*1.05));
+        const len = (26 + s.lenFactor*30) * (1-p*0.45);
+        const wid = (9 + s.widFactor*11) * (1-p*0.3);
+        drawStreak(sx,sy, ang+Math.PI/2+Math.sin(s.wobble+spin)*0.55, len, wid, streakColor, 0.8*(1-p*0.2));
+      });
+
+      // 짓이기며 생기는 옅은 광택
+      ctx.save();
+      ctx.globalAlpha=0.22*(1-p*0.5);
+      ctx.beginPath();
+      ctx.ellipse(cx-14,cy-16,16,9,-0.5,0,Math.PI*2);
+      ctx.fillStyle='#ffffff';
+      ctx.fill();
+      ctx.restore();
+    } else {
+      /* 3단계: 하나의 색으로 완전히 섞임 */
+      const p=(t-0.82)/0.18;
+      const r = 58+p*5;
+      drawGlossyBlob(cx,cy, r, resultHex);
+      drawPaintMottle(cx,cy, r, resultHex, 1-p);
+    }
+
+    if(t<1){ requestAnimationFrame(frame); }
+    else { drawGlossyBlob(cx,cy,63,resultHex); if(onDone) onDone(); }
+  }
+  requestAnimationFrame(frame);
+}
+function lerpNum(a,b,t){ return a+(b-a)*t; }
+
+mixBtn.addEventListener('click', ()=>{
+  if(!picked[0]||!picked[1]) return;
+  mixBtn.disabled=true;
+  const cA=byId(picked[0]), cB=byId(picked[1]);
+  mixResult.classList.remove('show');
+  addRow.style.display='none';
+  const mixed = mixPaint(cA.hex, cB.hex);
+  const match = nearestColorMatch(mixed.h);
+  const name = match.color ? match.color.name : null;
+  lastMix = {hex:mixed.hex, name: name || '이름 없는 새 색', fromA:cA, fromB:cB};
+
+  playMixAnimation(cA.hex, cB.hex, mixed.hex, ()=>{
+    resultSwatch.style.background = mixed.hex;
+    resultName.textContent = name ? `${name}` : '이름 없는 새로운 색 ✨';
+    mixResult.classList.add('show');
+    addRow.style.display='flex';
+    mixBtn.disabled=false;
+
+    if(currentTargetId){
+      const target = byId(currentTargetId);
+      const isCorrect = !!match.color && match.color.id === currentTargetId;
+      renderTargetReveal(target, isCorrect);
+      showToast(isCorrect ? '정답이에요! 🎉' : `아쉬워요! 정답은 '${target.name}'이었어요.`);
+    }
+  });
+});
+
+addToPaletteBtn.addEventListener('click', ()=>{
+  if(!lastMix) return;
+  myColors.push(lastMix);
+  renderGallery();
+  showToast('색상판에 저장했어요! 🎉');
+});
+
+nextColorBtn.addEventListener('click', resetClassFlow);
+
+function renderGallery(){
+  if(myColors.length===0){
+    gallery.innerHTML = `<div class="gallery-empty">아직 만든 색이 없어요. 색을 섞어서 색상판을 채워 보세요!</div>`;
+    return;
+  }
+  gallery.innerHTML='';
+  myColors.forEach(m=>{
+    const item=document.createElement('div');
+    item.className='gallery-item';
+    item.innerHTML = `<div class="gallery-swatch" style="background:${m.hex}"></div>${m.name}<br><span style="font-size:10.5px;">${m.fromA.name}+${m.fromB.name}</span>`;
+    gallery.appendChild(item);
+  });
+}
+
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* 초기화 */
+resetClassFlow();
+})();
+</script>
+</body>
+</html>

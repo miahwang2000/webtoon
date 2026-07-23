@@ -922,4 +922,46 @@ mixBtn.addEventListener('click', ()=>{
       const target = byId(currentTargetId);
       const isCorrect = !!match.color && match.color.id === currentTargetId;
       renderTargetReveal(target, isCorrect);
-      showToast(isCorrect ? '정답이에요! 🎉' : `아쉬워요! 정답은 '${target.name}
+      showToast(isCorrect ? '정답이에요! 🎉' : `아쉬워요! 정답은 '${target.name}'이었어요.`);
+    }
+  });
+});
+
+addToPaletteBtn.addEventListener('click', ()=>{
+  if(!lastMix) return;
+  myColors.push(lastMix);
+  renderGallery();
+  showToast('색상판에 저장했어요! 🎉');
+});
+
+nextColorBtn.addEventListener('click', resetClassFlow);
+
+function renderGallery(){
+  if(myColors.length===0){
+    gallery.innerHTML = `<div class="gallery-empty">아직 만든 색이 없어요. 색을 섞어서 색상판을 채워 보세요!</div>`;
+    return;
+  }
+  gallery.innerHTML='';
+  myColors.forEach(m=>{
+    const item=document.createElement('div');
+    item.className='gallery-item';
+    item.innerHTML = `<div class="gallery-swatch" style="background:${m.hex}"></div>${m.name}<br><span style="font-size:10.5px;">${m.fromA.name}+${m.fromB.name}</span>`;
+    gallery.appendChild(item);
+  });
+}
+
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* 초기화 */
+resetClassFlow();
+})();
+</script>
+</body>
+</html>

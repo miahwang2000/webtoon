@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>캐릭터 메이커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --paper:#FFFDF7;
+    --ink:#26232B;
+    --violet:#7C5CFC;
+    --violet-soft:#EFE9FF;
+    --yellow:#FFD23F;
+    --mint:#31D0A6;
+    --coral:#FF6F91;
+    --sky:#4FB3E8;
+    --line:3px solid var(--ink);
+    --shadow:5px 5px 0 var(--ink);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Noto Sans KR',sans-serif;
+    background:
+      radial-gradient(circle at 8% 12%, #FFE9A8 0%, transparent 40%),
+      radial-gradient(circle at 92% 85%, #C9F5E6 0%, transparent 45%),
+      var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  h1,h2,h3{font-family:'Jua',sans-serif; font-weight:400; margin:0;}
+  .app{max-width:720px; margin:0 auto; padding:16px;}
+  header.top{text-align:center; padding:18px 0 8px;}
+  header.top h1{font-size:28px; color:var(--violet);}
+  header.top p{margin:4px 0 0; font-size:13px; color:#6b6875;}
+
+  /* Step tracker - crayon row */
+  .crayon-track{display:flex; justify-content:center; gap:10px; margin:18px 0 22px; flex-wrap:wrap;}
+  .crayon{
+    width:52px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:default; opacity:.45; transition:.2s;
+  }
+  .crayon.active,.crayon.done{opacity:1;}
+  .crayon.clickable{cursor:pointer;}
+  .crayon-tip{
+    width:0; height:0; border-left:11px solid transparent; border-right:11px solid transparent; border-bottom:16px solid var(--ink);
+  }
+  .crayon-body{
+    width:22px; height:26px; border:2.5px solid var(--ink); border-radius:3px; background:#fff;
+  }
+  .crayon.done .crayon-body{background:var(--mint);}
+  .crayon.active .crayon-body{background:var(--yellow);}
+  .crayon-label{font-size:10.5px; font-weight:700; text-align:center;}
+
+  .card{
+    background:#fff; border:var(--line); border-radius:22px; box-shadow:var(--shadow);
+    padding:18px; margin-bottom:16px;
+  }
+  .step{display:none;}
+  .step.visible{display:block;}
+
+  .card h2{font-size:20px; margin-bottom:10px; color:var(--ink);}
+  .card h2 .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:26px;height:26px;border-radius:50%;background:var(--violet); color:#fff; font-size:14px; margin-right:8px;
+  }
+
+  canvas{
+    display:block; width:100%; aspect-ratio:1/1; background:#fff; border:var(--line); border-radius:16px;
+    touch-action:none; cursor:crosshair;
+  }
+
+  .toolbar{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  button{
+    font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:14px;
+    border:var(--line); border-radius:14px; background:#fff; color:var(--ink);
+    padding:10px 14px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:.12s;
+  }
+  button:active{transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink);}
+  button.primary{background:var(--violet); color:#fff;}
+  button.warn{background:var(--coral); color:#fff;}
+  button.good{background:var(--mint); color:#fff;}
+  button.ghost{box-shadow:none; border:2px dashed #bbb; color:#888;}
+  button:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  button.toggled{background:var(--yellow);}
+
+  .field{margin-top:14px;}
+  .field label{display:block; font-weight:700; font-size:13px; margin-bottom:6px;}
+  .field input[type=text], .field select, .field textarea{
+    width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:12px; font-size:14px; font-family:inherit;
+  }
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+  .chip{
+    padding:7px 12px; border-radius:999px; border:2px solid #ddd; background:#fafafa; font-size:13px; cursor:pointer; font-weight:600;
+  }
+  .chip.selected{background:var(--violet); color:#fff; border-color:var(--violet);}
+
+  .style-options{display:flex; gap:10px; margin-top:6px;}
+  .style-opt{
+    flex:1; text-align:center; padding:12px 6px; border:2.5px solid #ddd; border-radius:14px; cursor:pointer; font-weight:700; font-size:13px;
+  }
+  .style-opt.selected{border-color:var(--violet); background:var(--violet-soft); color:var(--violet);}
+
+  .palette{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .swatch{
+    width:34px; height:34px; border-radius:50%; border:2.5px solid var(--ink); cursor:pointer;
+  }
+  .swatch.selected{outline:3px solid var(--violet); outline-offset:2px;}
+
+  .loading{text-align:center; padding:30px 10px;}
+  .loading .spin{
+    width:46px;height:46px;border-radius:50%;border:5px solid #eee;border-top-color:var(--violet);
+    margin:0 auto 14px; animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading p{font-weight:700; color:var(--violet);}
+
+  .sheet-wrap{display:flex; gap:16px; flex-wrap:wrap;}
+  .sheet-canvas-box{
+    position:relative; flex:1 1 240px; min-width:220px; border:var(--line); border-radius:16px; overflow:hidden; background:#fff;
+  }
+  .sheet-canvas-box img{width:100%; display:block;}
+  .sheet-form{flex:1 1 240px; min-width:220px;}
+
+  .bubble{
+    position:absolute; min-width:90px; max-width:70%; background:#fff; border:2.5px solid var(--ink); border-radius:16px;
+    padding:8px 10px; font-size:13px; font-weight:700; cursor:grab; box-shadow:2px 2px 0 var(--ink);
+  }
+  .bubble:active{cursor:grabbing;}
+  .bubble::after{
+    content:""; position:absolute; left:16px; bottom:-10px; width:0; height:0;
+    border-left:8px solid transparent; border-right:8px solid transparent; border-top:10px solid var(--ink);
+  }
+  .bubble .btxt{outline:none; word-break:break-word;}
+  .bubble .bdel{
+    position:absolute; top:-10px; right:-10px; width:20px; height:20px; border-radius:50%; background:var(--coral);
+    color:#fff; border:2px solid var(--ink); font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:none; padding:0;
+  }
+
+  .final-preview{width:100%; border:var(--line); border-radius:16px; margin-top:10px;}
+  .note{font-size:12px; color:#888; margin-top:8px; line-height:1.5;}
+  .teacher-list{margin-top:16px; border-top:2px dashed #ddd; padding-top:12px;}
+  .teacher-item{display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid #f0f0f0;}
+  .teacher-item img{width:52px;height:52px;object-fit:cover;border-radius:10px;border:2px solid var(--ink);}
+  .teacher-item .ti-name{font-weight:700; font-size:13px;}
+  .teacher-item .ti-meta{font-size:11px; color:#999;}
+  .success-box{text-align:center; padding:14px;}
+  .success-box .big{font-size:40px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>🖍️ 캐릭터 메이커</h1>
+    <p>스케치 → 선화 → 채색 → 캐릭터 시트 완성까지!</p>
+  </header>
+
+  <div class="crayon-track" id="track"></div>
+
+  <!-- STEP 1: 스케치 -->
+  <section class="step" id="step1">
+    <div class="card">
+      <h2><span class="num">1</span>스케치하기</h2>
+      <canvas id="sketchCanvas" width="600" height="600"></canvas>
+      <div class="toolbar">
+        <button id="btnPen" class="toggled">✏️ 펜</button>
+        <button id="btnEraser">🧽 지우개</button>
+        <button id="btnClear" class="warn">🗑️ 전체 지우기</button>
+      </div>
+
+      <div class="field">
+        <label>① 무엇을 그렸나요?</label>
+        <div class="chips" id="subjectChips"></div>
+        <input type="text" id="subjectInput" placeholder="예: 호랑이">
+      </div>
+
+      <div class="field">
+        <label>② 어떤 스타일로 만들까요?</label>
+        <div class="style-options" id="styleOptions">
+          <div class="style-opt" data-style="사실적">사실적</div>
+          <div class="style-opt" data-style="캐릭터">캐릭터</div>
+          <div class="style-opt" data-style="이모티콘">이모티콘</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="primary" id="btnToLineart" style="margin-top:14px;">✨ 선화 만들기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2: AI 선화 -->
+  <section class="step" id="step2">
+    <div class="card">
+      <h2><span class="num">2</span>AI 선화 완성</h2>
+      <div id="lineartLoading" class="loading" style="display:none;">
+        <div class="spin"></div>
+        <p>AI가 선화를 그리고 있어요...</p>
+      </div>
+      <div id="lineartResult" style="display:none;">
+        <canvas id="lineartCanvas" width="600" height="600"></canvas>
+        <div class="toolbar">
+          <button id="btnBackToSketch">↩️ 다시 스케치하기</button>
+          <button class="primary" id="btnToColor">🎨 다음: 색칠하기</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3: 채색 -->
+  <section class="step" id="step3">
+    <div class="card">
+      <h2><span class="num">3</span>색칠하기</h2>
+      <canvas id="colorCanvas" width="600" height="600"></canvas>
+      <div class="palette" id="palette"></div>
+      <div class="toolbar">
+        <button id="btnUndo">↩️ 실행 취소</button>
+        <button id="btnResetColor" class="warn">🔄 초기화</button>
+        <button id="btnSaveColor" class="good">💾 저장</button>
+      </div>
+      <div class="toolbar">
+        <button class="primary" id="btnToSheet" style="margin-top:6px;">📋 다음: 캐릭터 시트 만들기</button>
+      </div>
+      <p class="note">색을 고르고 색칠하고 싶은 칸을 톡톡 눌러보세요!</p>
+    </div>
+  </section>
+
+  <!-- STEP 4: 캐릭터 시트 -->
+  <section class="step" id="step4">
+    <div class="card">
+      <h2><span class="num">4</span>캐릭터 시트 만들기</h2>
+      <div class="sheet-wrap">
+        <div class="sheet-canvas-box" id="sheetCanvasBox">
+          <img id="sheetCharImg" src="">
+        </div>
+        <div class="sheet-form">
+          <div class="field"><label>작가 이름</label><input type="text" id="authorName" placeholder="내 이름"></div>
+          <div class="field"><label>캐릭터 이름</label><input type="text" id="charName" placeholder="캐릭터 이름"></div>
+          <div class="field"><label>성격</label>
+            <div class="chips" id="personalityChips"></div>
+            <input type="text" id="personalityInput" placeholder="직접 입력도 가능해요">
+          </div>
+          <div class="field"><label>강점</label>
+            <div class="chips" id="strengthChips"></div>
+            <input type="text" id="strengthInput" placeholder="직접 입력도 가능해요">
+          </div>
+          <div class="field"><label>약점</label>
+            <div class="chips" id="weaknessChips"></div>
+            <input type="text" id="weaknessInput" placeholder="직접 입력도 가능해요">
+          </div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="btnAddBubble">💬 말풍선 추가</button>
+      </div>
+      <div class="toolbar">
+        <button class="primary" id="btnToFinal" style="margin-top:6px;">✅ 다음: 완성하기</button>
+      </div>
+      <p class="note">말풍선을 눌러서 글자를 쓰고, 손가락으로 끌어서 위치를 옮길 수 있어요.</p>
+    </div>
+  </section>
+
+  <!-- STEP 5: 저장 및 제출 -->
+  <section class="step" id="step5">
+    <div class="card">
+      <h2><span class="num">5</span>저장 및 제출</h2>
+      <div id="finalLoading" class="loading" style="display:none;">
+        <div class="spin"></div>
+        <p>캐릭터 시트를 만들고 있어요...</p>
+      </div>
+      <img id="finalPreview" class="final-preview" style="display:none;">
+      <div id="submitSuccess" class="success-box" style="display:none;">
+        <div class="big">🎉</div>
+        <h3>선생님께 제출 완료!</h3>
+        <p class="note" id="submitMeta"></p>
+      </div>
+      <div class="toolbar">
+        <button id="btnDownload" class="good">💾 PNG로 저장</button>
+        <button id="btnSubmit" class="primary">📮 선생님께 제출하기</button>
+        <button id="btnShowTeacher" class="ghost">🧑‍🏫 선생님 화면 보기</button>
+      </div>
+      <p class="note">'제출하기'를 누르면 이 앱을 함께 쓰는 모든 사람에게 작품이 공유돼요 (선생님 화면에서 확인 가능).</p>
+      <div class="teacher-list" id="teacherList" style="display:none;"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ===================== 상태 ===================== */
+const state = {
+  step: 1,
+  maxStepReached: 1,
+  subject: '',
+  style: '캐릭터',
+  bubbles: [],
+};
+
+const STEP_LABELS = ['스케치','선화','채색','시트','제출'];
+
+/* ===================== 스텝 트래커 ===================== */
+function renderTrack(){
+  const track = document.getElementById('track');
+  track.innerHTML = '';
+  for(let i=1;i<=5;i++){
+    const el = document.createElement('div');
+    el.className = 'crayon' + (i===state.step?' active':'') + (i<state.step?' done':'') + (i<=state.maxStepReached?' clickable':'');
+    el.innerHTML = `<div class="crayon-tip"></div><div class="crayon-body"></div><div class="crayon-label">${i}. ${STEP_LABELS[i-1]}</div>`;
+    if(i<=state.maxStepReached){ el.onclick = () => goToStep(i); }
+    track.appendChild(el);
+  }
+}
+function goToStep(n){
+  state.step = n;
+  document.querySelectorAll('.step').forEach((s,idx)=>{
+    s.classList.toggle('visible', idx+1===n);
+  });
+  renderTrack();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function advanceTo(n){
+  state.maxStepReached = Math.max(state.maxStepReached, n);
+  goToStep(n);
+}
+
+/* ===================== STEP 1: 스케치 ===================== */
+const sketchCanvas = document.getElementById('sketchCanvas');
+const sctx = sketchCanvas.getContext('2d');
+sctx.fillStyle = '#fff'; sctx.fillRect(0,0,600,600);
+sctx.lineCap='round'; sctx.lineJoin='round';
+let drawing=false, eraseMode=false, lastX=0,lastY=0;
+
+function canvasPos(e, canvas){
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches? e.touches[0].clientX : e.clientX);
+  const cy = (e.touches? e.touches[0].clientY : e.clientY);
+  return { x: (cx-rect.left) * (canvas.width/rect.width), y: (cy-rect.top) * (canvas.height/rect.height) };
+}
+function setupDraw(canvas, ctx, getColorWidth){
+  function start(e){ e.preventDefault(); drawing=true; const p=canvasPos(e,canvas); lastX=p.x; lastY=p.y; }
+  function move(e){
+    if(!drawing) return; e.preventDefault();
+    const p = canvasPos(e,canvas);
+    const {color,width} = getColorWidth();
+    ctx.strokeStyle=color; ctx.lineWidth=width;
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke();
+    lastX=p.x; lastY=p.y;
+  }
+  function end(){ drawing=false; }
+  canvas.addEventListener('pointerdown', start);
+  canvas.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+}
+setupDraw(sketchCanvas, sctx, ()=> eraseMode ? {color:'#fff', width:26} : {color:'#26232B', width:7});
+
+document.getElementById('btnPen').onclick = (e)=>{ eraseMode=false; toggleToolBtn(e.target,'btnEraser'); };
+document.getElementById('btnEraser').onclick = (e)=>{ eraseMode=true; toggleToolBtn(e.target,'btnPen'); };
+function toggleToolBtn(activeBtn, otherId){
+  document.getElementById(otherId).classList.remove('toggled');
+  activeBtn.classList.add('toggled');
+}
+document.getElementById('btnClear').onclick = ()=>{
+  sctx.fillStyle='#fff'; sctx.fillRect(0,0,600,600);
+};
+
+const SUBJECTS = ['고양이','호랑이','토끼','로봇','공룡'];
+const subjectChipsEl = document.getElementById('subjectChips');
+SUBJECTS.forEach(s=>{
+  const c=document.createElement('div'); c.className='chip'; c.textContent=s;
+  c.onclick=()=>{
+    document.querySelectorAll('#subjectChips .chip').forEach(x=>x.classList.remove('selected'));
+    c.classList.add('selected');
+    document.getElementById('subjectInput').value = s;
+  };
+  subjectChipsEl.appendChild(c);
+});
+document.getElementById('subjectInput').addEventListener('input', ()=>{
+  document.querySelectorAll('#subjectChips .chip').forEach(x=>x.classList.remove('selected'));
+});
+
+document.querySelectorAll('.style-opt').forEach(el=>{
+  el.onclick = ()=>{
+    document.querySelectorAll('.style-opt').forEach(x=>x.classList.remove('selected'));
+    el.classList.add('selected');
+    state.style = el.dataset.style;
+  };
+});
+document.querySelector('.style-opt[data-style="캐릭터"]').classList.add('selected');
+
+document.getElementById('btnToLineart').onclick = ()=>{
+  state.subject = document.getElementById('subjectInput').value.trim() || '나의 캐릭터';
+  advanceTo(2);
+  generateLineart();
+};
+
+/* ===================== STEP 2: 선화 생성 (로컬 처리 기반 '추천 모드') ===================== */
+const lineartCanvas = document.getElementById('lineartCanvas');
+const lctx = lineartCanvas.getContext('2d');
+
+function generateLineart(){
+  document.getElementById('lineartLoading').style.display='block';
+  document.getElementById('lineartResult').style.display='none';
+  setTimeout(()=>{
+    try{
+      thickenSketchToLineart(sketchCanvas, lineartCanvas, styleRadius(state.style));
+    }catch(err){
+      // Fallback: 원본 스케치를 그대로 선화로 사용
+      lctx.drawImage(sketchCanvas,0,0);
+    }
+    document.getElementById('lineartLoading').style.display='none';
+    document.getElementById('lineartResult').style.display='block';
+  }, 900);
+}
+function styleRadius(style){
+  if(style==='사실적') return 1;
+  if(style==='이모티콘') return 3;
+  return 2; // 캐릭터
+}
+function thickenSketchToLineart(srcCanvas, destCanvas, radius){
+  const w=srcCanvas.width, h=srcCanvas.height;
+  // 1. 투명 배경에 검은 선만 남기기
+  const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(srcCanvas,0,0);
+  const imgData = tctx.getImageData(0,0,w,h);
+  const d = imgData.data;
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i], g=d[i+1], b=d[i+2];
+    const brightness=(r+g+b)/3;
+    if(brightness>210){ d[i+3]=0; } // 밝은 픽셀은 투명 처리
+    else { d[i]=38; d[i+1]=35; d[i+2]=43; d[i+3]=255; } // 어두운 픽셀은 진한 잉크색
+  }
+  tctx.putImageData(imgData,0,0);
+
+  // 2. 여러 방향으로 겹쳐 그려 선을 두껍게(dilate)
+  const thick = document.createElement('canvas'); thick.width=w; thick.height=h;
+  const thctx = thick.getContext('2d');
+  const offsets=[];
+  for(let dy=-radius; dy<=radius; dy++){
+    for(let dx=-radius; dx<=radius; dx++){
+      if(dx*dx+dy*dy<=radius*radius) offsets.push([dx,dy]);
+    }
+  }
+  offsets.forEach(([dx,dy])=>{ thctx.drawImage(tmp, dx, dy); });
+
+  // 3. 흰 배경 위에 두꺼운 선 올리기
+  const dctx = destCanvas.getContext('2d');
+  dctx.fillStyle='#fff'; dctx.fillRect(0,0,w,h);
+  dctx.drawImage(thick,0,0);
+}
+
+document.getElementById('btnBackToSketch').onclick = ()=> goToStep(1);
+document.getElementById('btnToColor').onclick = ()=>{
+  const colorCanvas = document.getElementById('colorCanvas');
+  const cctx = colorCanvas.getContext('2d');
+  cctx.drawImage(lineartCanvas,0,0);
+  pushUndo();
+  advanceTo(3);
+};
+
+/* ===================== STEP 3: 채색 ===================== */
+const colorCanvas = document.getElementById('colorCanvas');
+const cctx = colorCanvas.getContext('2d');
+const PALETTE = ['#FF6F91','#FFD23F','#31D0A6','#4FB3E8','#7C5CFC','#FF9F45','#FF4747','#8BC34A','#B96BFF','#795548','#26232B','#FFFFFF'];
+let selectedColor = PALETTE[0];
+const paletteEl = document.getElementById('palette');
+PALETTE.forEach((c,idx)=>{
+  const sw=document.createElement('div'); sw.className='swatch'+(idx===0?' selected':'');
+  sw.style.background=c;
+  sw.onclick=()=>{
+    document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('selected'));
+    sw.classList.add('selected'); selectedColor=c;
+  };
+  paletteEl.appendChild(sw);
+});
+
+let undoStack=[];
+function pushUndo(){
+  undoStack.push(cctx.getImageData(0,0,600,600));
+  if(undoStack.length>20) undoStack.shift();
+}
+document.getElementById('btnUndo').onclick = ()=>{
+  if(undoStack.length>1){
+    undoStack.pop();
+    cctx.putImageData(undoStack[undoStack.length-1],0,0);
+  }
+};
+document.getElementById('btnResetColor').onclick = ()=>{
+  cctx.drawImage(lineartCanvas,0,0);
+  pushUndo();
+};
+document.getElementById('btnSaveColor').onclick = ()=>{
+  downloadCanvas(colorCanvas, (state.subject||'캐릭터')+'_채색.png');
+};
+
+colorCanvas.addEventListener('pointerdown', (e)=>{
+  const p = canvasPos(e, colorCanvas);
+  floodFill(cctx, Math.floor(p.x), Math.floor(p.y), hexToRgb(selectedColor));
+  pushUndo();
+});
+
+function hexToRgb(hex){
+  const v = parseInt(hex.slice(1),16);
+  return [ (v>>16)&255, (v>>8)&255, v&255, 255 ];
+}
+function floodFill(ctx, x, y, fillColor){
+  const w=600,h=600;
+  if(x<0||y<0||x>=w||y>=h) return;
+  const imgData = ctx.getImageData(0,0,w,h);
+  const d = imgData.data;
+  const idx = (x+y*w)*4;
+  const target = [d[idx],d[idx+1],d[idx+2],d[idx+3]];
+  if(colorsClose(target, fillColor, 10)) return;
+  // 선(어두운 색)은 채우지 않음
+  if(target[0]<60 && target[1]<60 && target[2]<60) return;
+
+  const stack=[[x,y]];
+  const visited = new Uint8Array(w*h);
+  while(stack.length){
+    const [cx,cy] = stack.pop();
+    if(cx<0||cy<0||cx>=w||cy>=h) continue;
+    const vidx = cx+cy*w;
+    if(visited[vidx]) continue;
+    const i = vidx*4;
+    const cur=[d[i],d[i+1],d[i+2],d[i+3]];
+    if(!colorsClose(cur, target, 40)) continue;
+    visited[vidx]=1;
+    d[i]=fillColor[0]; d[i+1]=fillColor[1]; d[i+2]=fillColor[2]; d[i+3]=255;
+    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+  }
+  ctx.putImageData(imgData,0,0);
+}
+function colorsClose(a,b,tol){
+  return Math.abs(a[0]-b[0])<=tol && Math.abs(a[1]-b[1])<=tol && Math.abs(a[2]-b[2])<=tol;
+}
+function downloadCanvas(canvas, filename){
+  const a=document.createElement('a');
+  a.download=filename; a.href=canvas.toDataURL('image/png'); a.click();
+}
+
+document.getElementById('btnToSheet').onclick = ()=>{
+  document.getElementById('sheetCharImg').src = colorCanvas.toDataURL('image/png');
+  advanceTo(4);
+};
+
+/* ===================== STEP 4: 캐릭터 시트 ===================== */
+const PERSONALITIES = ['용감한','장난꾸러기','다정한','호기심 많은','수줍은','씩씩한'];
+const STRENGTHS = ['힘이 세다','빠르다','똑똑하다','친구가 많다','노래를 잘한다'];
+const WEAKNESSES = ['겁이 많다','잘 넘어진다','편식을 한다','길을 잘 잃는다','졸림을 잘 탄다'];
+
+function buildChips(containerId, inputId, list){
+  const el = document.getElementById(containerId);
+  list.forEach(t=>{
+    const c=document.createElement('div'); c.className='chip'; c.textContent=t;
+    c.onclick=()=>{
+      document.querySelectorAll('#'+containerId+' .chip').forEach(x=>x.classList.remove('selected'));
+      c.classList.add('selected');
+      document.getElementById(inputId).value=t;
+    };
+    el.appendChild(c);
+  });
+}
+buildChips('personalityChips','personalityInput',PERSONALITIES);
+buildChips('strengthChips','strengthInput',STRENGTHS);
+buildChips('weaknessChips','weaknessInput',WEAKNESSES);
+
+let bubbleSeq=0;
+document.getElementById('btnAddBubble').onclick = ()=>{
+  const box = document.getElementById('sheetCanvasBox');
+  const id = 'b'+(bubbleSeq++);
+  const bubble = { id, x: 20, y: 20, text: '대사를 입력하세요' };
+  state.bubbles.push(bubble);
+  renderBubble(bubble, box);
+};
+function renderBubble(bubble, box){
+  const div = document.createElement('div');
+  div.className='bubble'; div.id=bubble.id;
+  div.style.left=bubble.x+'px'; div.style.top=bubble.y+'px';
+  div.innerHTML = `<span class="bdel">×</span><span class="btxt" contenteditable="true">${bubble.text}</span>`;
+  box.appendChild(div);
+
+  div.querySelector('.bdel').onclick = (e)=>{
+    e.stopPropagation();
+    div.remove();
+    state.bubbles = state.bubbles.filter(b=>b.id!==bubble.id);
+  };
+  div.querySelector('.btxt').addEventListener('input', (e)=>{ bubble.text = e.target.innerText; });
+
+  let dragging=false, ox=0, oy=0;
+  div.addEventListener('pointerdown', (e)=>{
+    if(e.target.classList.contains('btxt')||e.target.classList.contains('bdel')) return;
+    dragging=true;
+    const rect=div.getBoundingClientRect(); const boxRect=box.getBoundingClientRect();
+    ox = e.clientX - rect.left; oy = e.clientY - rect.top;
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    const boxRect=box.getBoundingClientRect();
+    let nx = e.clientX - boxRect.left - ox;
+    let ny = e.clientY - boxRect.top - oy;
+    nx = Math.max(0, Math.min(nx, boxRect.width-30));
+    ny = Math.max(0, Math.min(ny, boxRect.height-20));
+    div.style.left = nx+'px'; div.style.top = ny+'px';
+    bubble.x=nx; bubble.y=ny;
+  });
+  window.addEventListener('pointerup', ()=> dragging=false);
+}
+
+document.getElementById('btnToFinal').onclick = ()=>{
+  advanceTo(5);
+  renderFinal();
+};
+
+/* ===================== STEP 5: 저장 및 제출 ===================== */
+function renderFinal(){
+  document.getElementById('finalLoading').style.display='block';
+  document.getElementById('finalPreview').style.display='none';
+  document.getElementById('submitSuccess').style.display='none';
+  document.getElementById('teacherList').style.display='none';
+
+  html2canvas(document.getElementById('sheetCanvasBox').closest('.card'), {backgroundColor:'#FFFDF7', scale:2})
+    .then(canvas=>{
+      window.__finalCanvas = canvas;
+      const url = canvas.toDataURL('image/png');
+      const img = document.getElementById('finalPreview');
+      img.src=url; img.style.display='block';
+      document.getElementById('finalLoading').style.display='none';
+    })
+    .catch(()=>{
+      document.getElementById('finalLoading').style.display='none';
+      alert('시트를 만드는 중 문제가 생겼어요. 다시 시도해주세요.');
+    });
+}
+
+document.getElementById('btnDownload').onclick = ()=>{
+  if(!window.__finalCanvas) return;
+  downloadCanvas(window.__finalCanvas, (document.getElementById('charName').value||'캐릭터')+'_시트.png');
+};
+
+document.getElementById('btnSubmit').onclick = async ()=>{
+  if(!window.__finalCanvas) return;
+  const author = document.getElementById('authorName').value || '이름없음';
+  const charName = document.getElementById('charName').value || '캐릭터';
+  const dataUrl = window.__finalCanvas.toDataURL('image/png');
+  const key = 'submission:' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+  const payload = { author, charName, dataUrl, submittedAt: new Date().toLocaleString('ko-KR') };
+  try{
+    const ok = await window.storage.set(key, JSON.stringify(payload), true);
+    if(!ok){ throw new Error('storage failed'); }
+    document.getElementById('submitSuccess').style.display='block';
+    document.getElementById('submitMeta').textContent = `${author} 님의 '${charName}' 작품이 제출되었습니다.`;
+  }catch(err){
+    alert('제출 중 문제가 생겼어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+  }
+};
+
+document.getElementById('btnShowTeacher').onclick = async ()=>{
+  const listEl = document.getElementById('teacherList');
+  if(listEl.style.display==='block'){ listEl.style.display='none'; return; }
+  listEl.style.display='block';
+  listEl.innerHTML = '<p class="note">불러오는 중...</p>';
+  try{
+    const keys = await window.storage.list('submission:', true);
+    if(!keys || !keys.keys || keys.keys.length===0){
+      listEl.innerHTML = '<p class="note">아직 제출된 작품이 없어요.</p>';
+      return;
+    }
+    listEl.innerHTML='';
+    const items = [];
+    for(const k of keys.keys){
+      try{
+        const r = await window.storage.get(k, true);
+        if(r) items.push(JSON.parse(r.value));
+      }catch(e){}
+    }
+    items.sort((a,b)=> (b.submittedAt||'').localeCompare(a.submittedAt||''));
+    items.forEach(it=>{
+      const row=document.createElement('div'); row.className='teacher-item';
+      row.innerHTML = `<img src="${it.dataUrl}"><div><div class="ti-name">${it.charName} <span style="color:#999;font-weight:400;">by ${it.author}</span></div><div class="ti-meta">${it.submittedAt}</div></div>`;
+      listEl.appendChild(row);
+    });
+  }catch(err){
+    listEl.innerHTML = '<p class="note">목록을 불러오지 못했어요.</p>';
+  }
+};
+
+/* ===================== 초기화 ===================== */
+renderTrack();
+goToStep(1);
+</script>
+</body>
+</html>

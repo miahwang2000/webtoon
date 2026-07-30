@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>픽셀 아트 공방</title>
+<!--
+  픽셀 아트 메이커 MVP
+  -----------------------------------------------------------
+  - 학생 이름/반 선택 -> 수업 시작하기 -> 전체화면(kiosk) 진입
+  - classroom-input-guard.js 는 기존 앱들과 동일한 공용 유틸리티를 그대로 재사용합니다.
+    (파일 이름/경로가 다르면 아래 <script src="classroom-input-guard.js"> 한 줄만 맞춰주세요)
+  - 가이드 이미지: guides/ 폴더에 파일을 넣어주세요. 파일명 규칙:
+      16으로 시작 = 초급(16×16), 26으로 시작 = 중급(26×26), 36으로 시작 = 고급(36×36)
+      예) guides/16_guide1.png, guides/26_guide1.png, guides/36_tiger01.png
+    (파일이 아직 없으면 회색 안내 박스로 대체 표시됩니다)
+  - 저장: localStorage 자동 저장 (반+이름 별로 구분)
+  - 제출: Cloudinary unsigned upload (cloud_name: qmbonapf, upload_preset: stickman)
+          폴더: pixelart/{반}, context: student={이름}
+          대표 프레임 1장만 PNG로 업로드, 나머지 프레임은 localStorage 에만 보관
+  -----------------------------------------------------------
+-->
+<script src="classroom-input-guard.js" defer></script>
+<style>
+:root{
+  --paper:#fbf7ee;
+  --grid-line:#e4d9c4;
+  --ink:#2c2a26;
+  --accent:#ff8a3d;   /* 픽셀 오렌지 */
+  --accent2:#3ec6a8;  /* 픽셀 민트 */
+  --accent3:#5b7fd1;  /* 픽셀 블루 */
+  --panel:#ffffff;
+  --panel-border:#2c2a26;
+  --danger:#e0524a;
+}
+*{box-sizing:border-box;}
+html,body{
+  height:100%;
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+}
+input, textarea, select{ -webkit-user-select:text; user-select:text; }
+body{
+  margin:0;
+  font-family:'Segoe UI', 'Malgun Gothic', sans-serif;
+  color:var(--ink);
+  background:
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/24px 24px,
+    var(--paper);
+  overflow:hidden;
+}
+button{
+  font-family:inherit;
+  cursor:pointer;
+  border:2px solid var(--panel-border);
+  background:var(--panel);
+  color:var(--ink);
+  border-radius:6px;
+  padding:8px 12px;
+  font-weight:700;
+  font-size:14px;
+  box-shadow:2px 2px 0 var(--panel-border);
+  transition:transform .05s;
+}
+button:active{ transform:translate(2px,2px); box-shadow:none; }
+button:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
+button.accent{ background:var(--accent); color:#fff; }
+button.accent2{ background:var(--accent2); color:#fff; }
+button.toggled{ background:var(--ink); color:#fff; }
+input[type=text],select{
+  font-family:inherit;
+  font-size:16px;
+  padding:8px 10px;
+  border:2px solid var(--panel-border);
+  border-radius:6px;
+}
+
+/* ---------- 시작 화면 ---------- */
+#entry-screen{
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  z-index:50;
+}
+.entry-card{
+  background:var(--panel);
+  border:3px solid var(--panel-border);
+  border-radius:14px;
+  box-shadow:6px 6px 0 var(--panel-border);
+  padding:36px 40px;
+  width:360px;
+  text-align:center;
+}
+.entry-card h1{
+  font-size:26px; margin:0 0 4px;
+  letter-spacing:1px;
+}
+.entry-card .sub{ font-size:13px; color:#8a8377; margin-bottom:20px;}
+.entry-card label{ display:block; text-align:left; font-size:13px; font-weight:700; margin:14px 0 4px; }
+.entry-card input, .entry-card select{ width:100%; }
+.entry-card .start-btn{ width:100%; margin-top:24px; font-size:17px; padding:12px; }
+.pixel-deco{
+  width:56px; height:56px; margin:0 auto 12px;
+  background:
+    linear-gradient(45deg, var(--accent) 25%, transparent 25%) -8px 0/16px 16px,
+    linear-gradient(45deg, var(--accent2) 25%, transparent 25%) 0 -8px/16px 16px,
+    linear-gradient(45deg, var(--accent3) 25%, transparent 25%) 8px 0/16px 16px;
+  border:2px solid var(--panel-border);
+  border-radius:8px;
+}
+
+/* ---------- 난이도 선택 모달 ---------- */
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(44,42,38,.55);
+  display:flex; align-items:center; justify-content:center; z-index:60;
+}
+.modal-card{
+  background:var(--panel); border:3px solid var(--panel-border);
+  border-radius:14px; box-shadow:6px 6px 0 var(--panel-border);
+  padding:28px 26px; width:440px; text-align:center;
+}
+.modal-card h2{ margin-top:0; }
+.diff-options{ display:flex; gap:10px; margin:18px 0; }
+.diff-btn{ flex:1; padding:16px 6px; font-size:14px; }
+.diff-btn small{ display:block; font-weight:400; color:#8a8377; margin-top:4px;}
+
+/* ---------- 앱 레이아웃 ---------- */
+#app-screen{ display:none; height:100vh; flex-direction:column; }
+#app-screen.active{ display:flex; }
+
+.topbar{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 14px; background:var(--panel);
+  border-bottom:3px solid var(--panel-border);
+  flex-wrap:wrap;
+}
+.topbar .who{ font-size:13px; font-weight:700; margin-right:auto; color:#5b5648; }
+.topbar .save-indicator{ font-size:12px; color:var(--accent2); font-weight:700; min-width:90px; }
+
+.main-area{ flex:1; display:flex; overflow:hidden; position:relative; }
+
+.side-tools{
+  width:60px; background:var(--panel);
+  border-right:3px solid var(--panel-border);
+  padding:8px 6px; display:flex; flex-direction:column; gap:8px;
+  overflow-y:auto; flex-shrink:0;
+}
+.side-tools button{ font-size:24px; padding:10px 2px; line-height:1; }
+.tool-icon{ width:26px; height:26px; object-fit:contain; display:block; margin:0 auto; pointer-events:none; }
+.side-tools .group-label{
+  font-size:9px; color:#8a8377; font-weight:700; margin-top:6px;
+  text-align:center; letter-spacing:-0.5px;
+}
+
+.canvas-wrap-outer{
+  flex:1; position:relative; overflow:auto;
+  background:#ffffff;
+  display:flex; align-items:center; justify-content:center;
+  touch-action:none;
+}
+.canvas-stack{ position:relative; image-rendering:pixelated; background:#ffffff; }
+.canvas-stack canvas{ position:absolute; top:0; left:0; image-rendering:pixelated; }
+
+.palette-panel{
+  width:150px; background:var(--panel);
+  border-left:3px solid var(--panel-border);
+  display:flex; flex-direction:column;
+  flex-shrink:0;
+  transition:width .22s ease;
+  overflow:hidden;
+}
+.palette-panel.collapsed{ width:40px; }
+.palette-toggle{
+  width:100%; flex-shrink:0; padding:10px 0; font-size:18px;
+  background:var(--panel); border:none; border-bottom:2px solid var(--panel-border);
+  border-radius:0; box-shadow:none;
+}
+.palette-panel-inner{ flex:1; overflow-y:auto; padding:10px; width:150px; }
+.palette-panel.collapsed .palette-panel-inner{ display:none; }
+.swatch-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.swatch{
+  width:100%; aspect-ratio:1; border-radius:6px;
+  border:2px solid var(--panel-border); cursor:pointer;
+}
+.swatch.selected{ outline:3px solid var(--accent); outline-offset:1px; }
+.color-picker-row{ margin-top:10px; display:flex; align-items:center; gap:6px; }
+.rainbow-picker-btn{
+  position:relative; width:44px; height:44px; border-radius:10px;
+  background:conic-gradient(from 0deg, #ff3b3b, #ff9a3d, #ffe23d, #6bdc5a, #3ddbc7, #3d8bff, #a35dff, #ff3b3b);
+  border:2px solid var(--panel-border);
+  box-shadow:2px 2px 0 var(--panel-border);
+  overflow:hidden;
+}
+.rainbow-picker-btn input[type=color]{
+  position:absolute; inset:0; width:100%; height:100%;
+  opacity:0; cursor:pointer; border:none; padding:0; margin:0;
+}
+
+.guide-box{ margin-top:14px; padding-top:10px; border-top:2px dashed var(--grid-line); font-size:12px; }
+.guide-box input[type=range]{ width:100%; }
+.guide-box .row{ display:flex; align-items:center; justify-content:space-between; }
+.guide-gallery{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; }
+.guide-thumb{
+  position:relative; aspect-ratio:1; border:2px solid var(--panel-border); border-radius:6px;
+  overflow:hidden; cursor:pointer; background:#eee;
+  display:flex; align-items:center; justify-content:center;
+}
+.guide-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.guide-thumb.selected{ outline:3px solid var(--accent); outline-offset:1px; }
+.guide-thumb .label{ position:absolute; bottom:0; left:0; right:0; background:rgba(44,42,38,.65); color:#fff; font-size:9px; text-align:center; padding:2px 0; }
+.guide-thumb.missing{ font-size:9px; color:#999; text-align:center; padding:4px; line-height:1.3; }
+
+.bottombar{
+  background:var(--panel); border-top:3px solid var(--panel-border);
+  padding:8px 12px; display:flex; align-items:center; gap:10px; overflow-x:auto;
+}
+.frame-thumb{
+  position:relative; width:56px; height:56px; flex:0 0 auto;
+  border:2px solid var(--panel-border); border-radius:6px;
+  background:
+    linear-gradient(45deg,#eee 25%,transparent 25%) 0 0/8px 8px,
+    linear-gradient(-45deg,#eee 25%,transparent 25%) 0 0/8px 8px,
+    linear-gradient(45deg,transparent 75%,#eee 75%) 0 0/8px 8px,
+    linear-gradient(-45deg,transparent 75%,#eee 75%) 0 0/8px 8px,#fff;
+  cursor:pointer;
+}
+.frame-thumb.active{ outline:3px solid var(--accent); outline-offset:2px; }
+.frame-thumb canvas{ width:100%; height:100%; image-rendering:pixelated; }
+.frame-thumb .star{
+  position:absolute; top:-8px; left:-8px; font-size:14px; cursor:pointer;
+  background:#fff; border:2px solid var(--panel-border); border-radius:50%;
+  width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+}
+.frame-thumb .star.is-rep{ background:gold; }
+.frame-thumb .del{
+  position:absolute; top:-8px; right:-8px; font-size:11px; cursor:pointer;
+  background:var(--danger); color:#fff; border:2px solid var(--panel-border); border-radius:50%;
+  width:20px; height:20px; display:flex; align-items:center; justify-content:center;
+}
+
+.toast{
+  position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+  background:var(--ink); color:#fff; padding:14px 22px; border-radius:10px;
+  font-weight:700; z-index:100; box-shadow:3px 3px 0 rgba(0,0,0,.3);
+  display:none;
+}
+.toast.show{ display:block; }
+
+.hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ===================== 시작 화면 ===================== -->
+<div id="entry-screen">
+  <div class="entry-card">
+    <div class="pixel-deco"></div>
+    <h1>픽셀 아트 공방</h1>
+    <div class="sub">이름과 반을 선택하고 수업을 시작해요</div>
+
+    <label for="student-name">이름</label>
+    <input type="text" id="student-name" placeholder="예: 김민준" maxlength="10">
+
+    <label for="student-class">반</label>
+    <select id="student-class">
+      <option value="">반을 선택하세요</option>
+      <option value="신도림초A">신도림초 A반</option>
+      <option value="신도림초B">신도림초 B반</option>
+      <option value="등현초A">등현초 A반</option>
+      <option value="등현초B">등현초 B반</option>
+      <option value="신남초A">신남초 A반</option>
+      <option value="신남초B">신남초 B반</option>
+    </select>
+
+    <button class="accent start-btn" id="start-btn">🎨 수업 시작하기</button>
+  </div>
+</div>
+
+<!-- ===================== 난이도 선택 모달 ===================== -->
+<div class="modal-backdrop hidden" id="diff-modal">
+  <div class="modal-card">
+    <h2 id="diff-modal-title">난이도를 선택하세요</h2>
+    <div class="diff-options">
+      <button class="diff-btn" data-size="16">16 × 16<small>초급</small></button>
+      <button class="diff-btn" data-size="26">26 × 26<small>중급</small></button>
+      <button class="diff-btn" data-size="36">36 × 36<small>고급</small></button>
+    </div>
+    <button id="diff-continue-btn" class="hidden accent2" style="width:100%;margin-top:6px;">이어서 그리기</button>
+  </div>
+</div>
+
+<!-- ===================== 앱 화면 ===================== -->
+<div id="app-screen">
+  <div class="topbar">
+    <span class="who" id="who-label"></span>
+    <span class="save-indicator" id="save-indicator">✓ 저장됨</span>
+    <button id="new-btn">🆕 새 작품</button>
+    <button id="load-btn">📂 불러오기</button>
+    <button id="png-btn">🖼 PNG 저장</button>
+    <button class="accent" id="submit-btn">📤 제출하기</button>
+    <button id="minigame-btn" disabled title="제출을 완료하면 미니게임을 할 수 있어요">🎮 미니게임</button>
+    <button id="fullscreen-toggle-btn" title="전체화면 켜기/끄기">⛶</button>
+  </div>
+
+  <div class="main-area">
+    <div class="side-tools">
+      <div class="group-label">도구</div>
+      <button id="tool-pencil" class="toggled" title="연필">✏️</button>
+      <button id="tool-eraser" title="지우개"><img class="tool-icon" src="icons/eraser.png" alt="지우개"></button>
+      <button id="tool-fill" title="채우기"><img class="tool-icon" src="icons/fill.png" alt="채우기"></button>
+
+      <div class="group-label">편집</div>
+      <button id="undo-btn" title="실행 취소">↩️</button>
+      <button id="redo-btn" title="다시 실행">↪️</button>
+      <button id="clear-btn" title="전체 지우기">🗑</button>
+
+      <div class="group-label">확대/이동</div>
+      <button id="tool-pan" title="화면 이동">✋</button>
+      <button id="zoom-in-btn" title="확대">🔍+</button>
+      <button id="zoom-out-btn" title="축소">🔍−</button>
+      <button id="zoom-reset-btn" title="100%로 보기">↺</button>
+    </div>
+
+    <div class="canvas-wrap-outer" id="canvas-wrap-outer">
+      <div class="canvas-stack" id="canvas-stack">
+        <canvas id="guide-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+        <canvas id="grid-canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="palette-panel" id="palette-panel">
+      <button id="palette-toggle-btn" class="palette-toggle" title="펼치기/접기">▶</button>
+      <div class="palette-panel-inner">
+        <div class="group-label" style="margin-top:0;">색상 팔레트</div>
+        <div class="swatch-grid" id="swatch-grid"></div>
+        <div class="color-picker-row">
+          <div class="rainbow-picker-btn" title="무지개색">
+            <input type="color" id="color-picker" value="#ff8a3d">
+          </div>
+        </div>
+
+        <div class="guide-box">
+          <div class="row"><b>가이드</b>
+            <label><input type="checkbox" id="guide-toggle" checked> 켜기</label>
+          </div>
+          <div class="guide-gallery" id="guide-gallery"></div>
+          <button id="guide-upload-btn" style="width:100%;margin-top:4px;font-size:12px;">🖼 내 이미지 가이드 추가</button>
+          <input type="file" id="guide-file-input" accept="image/*" class="hidden">
+
+          <label style="font-size:11px; display:block; margin-top:10px;">투명도</label>
+          <input type="range" id="guide-opacity" min="10" max="90" value="45">
+
+          <label style="font-size:11px; display:block; margin-top:8px;">크기</label>
+          <div class="row" style="gap:6px; align-items:center;">
+            <button id="guide-scale-down" style="width:30px; padding:6px 0; font-size:14px;">−</button>
+            <input type="range" id="guide-scale" min="50" max="200" value="100" step="5" style="flex:1;">
+            <button id="guide-scale-up" style="width:30px; padding:6px 0; font-size:14px;">+</button>
+          </div>
+
+          <div class="row" style="margin-top:8px; gap:6px;">
+            <button id="guide-move-btn" style="flex:1;font-size:11px;padding:6px;">🧭 위치조정</button>
+            <button id="guide-reset-pos-btn" style="flex:1;font-size:11px;padding:6px;">↺ 초기화</button>
+          </div>
+          <div id="guide-move-hint" class="hidden" style="font-size:11px;color:var(--accent);margin-top:6px;">캔버스를 드래그해서 위치를, 크기 슬라이더로 비율을 맞춰보세요</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottombar" id="frame-bar">
+    <button id="frame-add-btn">➕ 프레임</button>
+    <button id="frame-dup-btn">📑 복제</button>
+    <div id="frame-list" style="display:flex; gap:10px;"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 설정값 (선생님이 필요하면 이 부분만 수정하면 됩니다)
+   ========================================================= */
+const CLOUDINARY_CLOUD_NAME = "qmbonapf";
+const CLOUDINARY_UPLOAD_PRESET = "stickman";
+const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+const BASE_CELL = 20;          // 그리드 1칸의 기본 화면 픽셀 크기
+const EXPORT_CELL = 32;        // PNG 내보낼 때 1칸의 크기 (고해상도용)
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 5];
+const MAX_HISTORY = 30;
+
+// 12색 고정 팔레트 (흰색 대신 살구색/스킨톤 사용, 기존 앱과 동일)
+const PALETTE = [
+  "#000000", "#888888", "#ffcc99", "#8b5a2b",
+  "#e74c3c", "#f39c12", "#f1c40f", "#2ecc71",
+  "#3ec6a8", "#3498db", "#2c3e50", "#9b59b6"
+];
+
+// 기본 가이드 목록: guides/ 폴더에 실제 파일을 넣어주세요.
+// 파일명 규칙: 16으로 시작 = 초급(16칸), 26으로 시작 = 중급(26칸), 36으로 시작 = 고급(36칸)
+// 한 난이도에 여러 개의 가이드를 자유롭게 추가할 수 있습니다 (배열에 줄만 추가).
+const BUILTIN_GUIDES = {
+  16: [
+    { id: "16_oval", label: "타원", src: "guides/16_oval.png" },
+    { id: "16_circle", label: "원형", src: "guides/16_circle.png" }
+  ],
+  26: [
+    { id: "26_robot", label: "로봇", src: "guides/26_robot.png" },
+    { id: "26_spaceship", label: "우주선", src: "guides/26_spaceship.png" },
+    { id: "26_ghost", label: "유령", src: "guides/26_ghost.png" }
+  ],
+  36: [
+    { id: "36_tiger01", label: "호랑이 1", src: "guides/36_tiger01.png" },
+    { id: "36_tiger02", label: "호랑이 2", src: "guides/36_tiger02.png" },
+    { id: "36_tiger03", label: "호랑이 3", src: "guides/36_tiger03.png" }
+  ]
+};
+
+/* =========================================================
+   1. 상태
+   ========================================================= */
+let state = null; // 아래 createEmptyProject() 형태
+let history = [];   // undo 스택 (현재 프레임의 pixels 스냅샷)
+let redoStack = [];
+let zoomIndex = 2; // 기본 100%
+let currentTool = "pencil"; // pencil | eraser | fill | pan | guide-move
+let selectedColor = PALETTE[0];
+let isDrawing = false;
+let isPanning = false;
+let panStart = null;
+let isGuideDragging = false;
+let guideDragStart = null;
+let guideImageEl = null; // 현재 로드된 가이드 <img> (내장 or 업로드)
+let saveTimer = null;
+
+function createEmptyProject(size, studentName, className){
+  const firstGuide = (BUILTIN_GUIDES[size] && BUILTIN_GUIDES[size][0]) ? BUILTIN_GUIDES[size][0].id : null;
+  return {
+    studentName, className,
+    size,
+    frames: [ new Array(size*size).fill(null) ],
+    currentFrame: 0,
+    repFrame: 0,
+    guide: { type:"builtin", builtinId: firstGuide, customSrc:null, on:true, opacity:45, offsetX:0, offsetY:0, scale:1 },
+    submitted: false, // 제출을 완료해야 미니게임 버튼이 활성화됨
+    updatedAt: Date.now()
+  };
+}
+
+function storageKey(className, studentName){
+  return `pixelart_project_${className}_${studentName}`;
+}
+
+/* =========================================================
+   2. DOM 참조
+   ========================================================= */
+const $ = (id) => document.getElementById(id);
+const entryScreen = $("entry-screen");
+const appScreen = $("app-screen");
+const diffModal = $("diff-modal");
+const diffContinueBtn = $("diff-continue-btn");
+const whoLabel = $("who-label");
+const saveIndicator = $("save-indicator");
+const canvasStack = $("canvas-stack");
+const gridCanvas = $("grid-canvas");
+const grCtx = gridCanvas.getContext("2d");
+const guideCanvas = $("guide-canvas");
+const drawCanvas = $("draw-canvas");
+const gCtx = guideCanvas.getContext("2d");
+const dCtx = drawCanvas.getContext("2d");
+const canvasWrapOuter = $("canvas-wrap-outer");
+const swatchGrid = $("swatch-grid");
+const colorPicker = $("color-picker");
+const guideToggle = $("guide-toggle");
+const guideGallery = $("guide-gallery");
+const guideOpacity = $("guide-opacity");
+const guideScaleInput = $("guide-scale");
+const frameList = $("frame-list");
+const toastEl = $("toast");
+
+/* =========================================================
+   3. 유틸
+   ========================================================= */
+function showToast(msg, ms=2400){
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=> toastEl.classList.remove("show"), ms);
+}
+
+function idxOf(x,y,size){ return y*size + x; }
+
+/* =========================================================
+   4. 시작 화면 -> 전체화면(kiosk) 진입
+   ========================================================= */
+$("start-btn").addEventListener("click", () => {
+  const name = $("student-name").value.trim();
+  const cls = $("student-class").value;
+  if(!name){ showToast("이름을 입력해주세요"); return; }
+  if(!cls){ showToast("반을 선택해주세요"); return; }
+
+  // 공용 유틸(classroom-input-guard.js)이 있으면 그대로 사용, 없으면 기본 전체화면으로 대체
+  try{
+    if(window.ClassroomInputGuard && typeof window.ClassroomInputGuard.enterKioskMode === "function"){
+      window.ClassroomInputGuard.enterKioskMode();
+    } else if(document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(()=>{});
+    }
+  }catch(e){ /* 전체화면 실패해도 수업은 계속 진행 */ }
+
+  entryScreen.classList.add("hidden");
+  whoLabel.textContent = `${cls} · ${name}`;
+
+  const existing = localStorage.getItem(storageKey(cls, name));
+  openDifficultyModal(cls, name, !!existing);
+});
+
+/* =========================================================
+   5. 난이도 선택 / 새 작품 / 이어하기
+   ========================================================= */
+let pendingStudent = null;
+
+function openDifficultyModal(cls, name, hasExisting){
+  pendingStudent = { cls, name };
+  diffModal.classList.remove("hidden");
+  diffContinueBtn.classList.toggle("hidden", !hasExisting);
+  $("diff-modal-title").textContent = hasExisting
+    ? "새로 시작할까요, 이어서 그릴까요?"
+    : "난이도를 선택하세요";
+}
+
+document.querySelectorAll(".diff-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const size = parseInt(btn.dataset.size, 10);
+    const { cls, name } = pendingStudent;
+    state = createEmptyProject(size, name, cls);
+    diffModal.classList.add("hidden");
+    startApp();
+  });
+});
+
+diffContinueBtn.addEventListener("click", ()=>{
+  const { cls, name } = pendingStudent;
+  const raw = localStorage.getItem(storageKey(cls, name));
+  if(raw){
+    state = JSON.parse(raw);
+    diffModal.classList.add("hidden");
+    startApp();
+  }
+});
+
+$("new-btn").addEventListener("click", ()=>{
+  if(!confirm("새 작품을 시작하면 현재 화면 작업은 저장된 상태로 남고, 새 캔버스를 만듭니다. 계속할까요?")) return;
+  openDifficultyModal(state.className, state.studentName, false);
+  appScreen.classList.remove("active");
+});
+
+$("load-btn").addEventListener("click", ()=>{
+  const raw = localStorage.getItem(storageKey(state.className, state.studentName));
+  if(!raw){ showToast("저장된 작품이 없어요"); return; }
+  state = JSON.parse(raw);
+  history = []; redoStack = [];
+  rebuildAll();
+  showToast("불러왔어요");
+});
+
+/* =========================================================
+   6. 앱 시작 / 캔버스 크기 세팅
+   ========================================================= */
+function startApp(){
+  appScreen.classList.add("active");
+  buildPalette();
+  history = []; redoStack = [];
+  rebuildAll();
+}
+
+function setCanvasPixelSize(){
+  const cellScreen = BASE_CELL * ZOOM_STEPS[zoomIndex];
+  const px = Math.round(state.size * cellScreen);
+  [gridCanvas, guideCanvas, drawCanvas].forEach(c=>{
+    c.width = state.size * BASE_CELL;   // 실제 해상도는 고정, 표시 크기만 변경
+    c.height = state.size * BASE_CELL;
+    c.style.width = px + "px";
+    c.style.height = px + "px";
+  });
+  canvasStack.style.width = px + "px";
+  canvasStack.style.height = px + "px";
+}
+
+function drawGridCanvas(){
+  grCtx.clearRect(0,0,gridCanvas.width, gridCanvas.height);
+  grCtx.strokeStyle = "#d9d3c6";
+  grCtx.lineWidth = 1;
+  // 선택한 난이도(16, 26, 36) 칸 수만큼 정확히 격자선을 그림
+  for(let i=0; i<=state.size; i++){
+    const pos = i * BASE_CELL + 0.5; // 1px 선명한 선을 위해 0.5 보정
+    grCtx.beginPath();
+    grCtx.moveTo(pos, 0); grCtx.lineTo(pos, gridCanvas.height);
+    grCtx.stroke();
+    grCtx.beginPath();
+    grCtx.moveTo(0, pos); grCtx.lineTo(gridCanvas.width, pos);
+    grCtx.stroke();
+  }
+}
+
+function rebuildAll(){
+  setCanvasPixelSize();
+  drawGridCanvas();
+  loadGuideForState();
+  redrawDrawCanvas();
+  renderFrameThumbs();
+  updateGuideControlsFromState();
+  updateMinigameButtonState();
+  scheduleAutosave(true);
+}
+
+function updateMinigameButtonState(){
+  $("minigame-btn").disabled = !state.submitted;
+}
+
+/* =========================================================
+   7. 팔레트
+   ========================================================= */
+function buildPalette(){
+  swatchGrid.innerHTML = "";
+  PALETTE.forEach(color=>{
+    const div = document.createElement("div");
+    div.className = "swatch" + (color === selectedColor ? " selected" : "");
+    div.style.background = color;
+    div.addEventListener("click", ()=>{
+      selectedColor = color;
+      if(currentTool !== "fill") currentTool = "pencil"; // 채우기 도구는 색만 바꾸고 유지
+      updateToolButtons();
+      document.querySelectorAll(".swatch").forEach(s=>s.classList.remove("selected"));
+      div.classList.add("selected");
+    });
+    swatchGrid.appendChild(div);
+  });
+}
+colorPicker.addEventListener("input", ()=>{
+  selectedColor = colorPicker.value;
+  if(currentTool !== "fill") currentTool = "pencil";
+  updateToolButtons();
+  document.querySelectorAll(".swatch").forEach(s=>s.classList.remove("selected"));
+});
+
+/* =========================================================
+   8. 도구 (연필/지우개/이동), 실행취소/다시실행/전체지우기
+   ========================================================= */
+function updateToolButtons(){
+  $("tool-pencil").classList.toggle("toggled", currentTool === "pencil");
+  $("tool-eraser").classList.toggle("toggled", currentTool === "eraser");
+  $("tool-fill").classList.toggle("toggled", currentTool === "fill");
+  $("tool-pan").classList.toggle("toggled", currentTool === "pan");
+  $("guide-move-btn").classList.toggle("toggled", currentTool === "guide-move");
+  $("guide-move-hint").classList.toggle("hidden", currentTool !== "guide-move");
+  canvasWrapOuter.style.cursor = currentTool === "pan" ? "grab" : (currentTool === "guide-move" ? "move" : "crosshair");
+}
+$("tool-pencil").addEventListener("click", ()=>{ currentTool="pencil"; updateToolButtons(); });
+$("tool-eraser").addEventListener("click", ()=>{ currentTool="eraser"; updateToolButtons(); });
+$("tool-fill").addEventListener("click", ()=>{ currentTool="fill"; updateToolButtons(); });
+$("tool-pan").addEventListener("click", ()=>{ currentTool="pan"; updateToolButtons(); });
+$("guide-move-btn").addEventListener("click", ()=>{
+  currentTool = currentTool === "guide-move" ? "pencil" : "guide-move";
+  updateToolButtons();
+});
+$("guide-reset-pos-btn").addEventListener("click", ()=>{
+  state.guide.offsetX = 0; state.guide.offsetY = 0; state.guide.scale = 1;
+  guideScaleInput.value = 100;
+  drawGuideToCanvas(); scheduleAutosave();
+  showToast("가이드 위치/크기를 초기화했어요");
+});
+function applyGuideScale(){
+  state.guide.scale = parseInt(guideScaleInput.value,10) / 100;
+  drawGuideToCanvas(); scheduleAutosave();
+}
+guideScaleInput.addEventListener("input", applyGuideScale);
+$("guide-scale-down").addEventListener("click", ()=>{
+  const min = parseInt(guideScaleInput.min,10);
+  guideScaleInput.value = Math.max(min, parseInt(guideScaleInput.value,10) - 1);
+  applyGuideScale();
+});
+$("guide-scale-up").addEventListener("click", ()=>{
+  const max = parseInt(guideScaleInput.max,10);
+  guideScaleInput.value = Math.min(max, parseInt(guideScaleInput.value,10) + 1);
+  applyGuideScale();
+});
+updateToolButtons();
+
+function currentPixels(){ return state.frames[state.currentFrame]; }
+
+function pushHistory(){
+  history.push(currentPixels().slice());
+  if(history.length > MAX_HISTORY) history.shift();
+  redoStack = [];
+}
+$("undo-btn").addEventListener("click", ()=>{
+  if(history.length === 0) return;
+  redoStack.push(currentPixels().slice());
+  state.frames[state.currentFrame] = history.pop();
+  redrawDrawCanvas(); renderFrameThumbs(); scheduleAutosave();
+});
+$("redo-btn").addEventListener("click", ()=>{
+  if(redoStack.length === 0) return;
+  history.push(currentPixels().slice());
+  state.frames[state.currentFrame] = redoStack.pop();
+  redrawDrawCanvas(); renderFrameThumbs(); scheduleAutosave();
+});
+$("clear-btn").addEventListener("click", ()=>{
+  if(!confirm("현재 프레임을 전체 지울까요?")) return;
+  pushHistory();
+  state.frames[state.currentFrame] = new Array(state.size*state.size).fill(null);
+  redrawDrawCanvas(); renderFrameThumbs(); scheduleAutosave();
+});
+
+/* =========================================================
+   9. 그리기 (포인터 이벤트)
+   ========================================================= */
+function eventToCell(evt){
+  const rect = drawCanvas.getBoundingClientRect();
+  const cellSize = rect.width / state.size;
+  const x = Math.floor((evt.clientX - rect.left) / cellSize);
+  const y = Math.floor((evt.clientY - rect.top) / cellSize);
+  if(x<0 || y<0 || x>=state.size || y>=state.size) return null;
+  return {x,y};
+}
+
+function paintCell(x,y){
+  const i = idxOf(x,y,state.size);
+  const pixels = currentPixels();
+  const newVal = currentTool === "eraser" ? null : selectedColor;
+  if(pixels[i] === newVal) return;
+  pixels[i] = newVal;
+}
+
+// 같은 색으로 이어진 영역을 한 번에 채우는 채우기(버킷) 도구
+function floodFillCell(startX, startY, newColor){
+  const pixels = currentPixels();
+  const startIdx = idxOf(startX, startY, state.size);
+  const target = pixels[startIdx];
+  if(target === newColor) return;
+  const stack = [[startX, startY]];
+  while(stack.length){
+    const [x,y] = stack.pop();
+    if(x<0 || y<0 || x>=state.size || y>=state.size) continue;
+    const i = idxOf(x,y,state.size);
+    if(pixels[i] !== target) continue;
+    pixels[i] = newColor;
+    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+  }
+}
+
+function redrawDrawCanvas(){
+  dCtx.clearRect(0,0,drawCanvas.width, drawCanvas.height);
+  const pixels = currentPixels();
+  for(let y=0;y<state.size;y++){
+    for(let x=0;x<state.size;x++){
+      const c = pixels[idxOf(x,y,state.size)];
+      if(c){
+        dCtx.fillStyle = c;
+        dCtx.fillRect(x*BASE_CELL, y*BASE_CELL, BASE_CELL, BASE_CELL);
+      }
+    }
+  }
+}
+
+canvasWrapOuter.addEventListener("pointerdown", (evt)=>{
+  if(currentTool === "pan"){
+    isPanning = true;
+    panStart = { x: evt.clientX, y: evt.clientY, sl: canvasWrapOuter.scrollLeft, st: canvasWrapOuter.scrollTop };
+    canvasWrapOuter.style.cursor = "grabbing";
+    return;
+  }
+  if(currentTool === "guide-move"){
+    isGuideDragging = true;
+    guideDragStart = { x: evt.clientX, y: evt.clientY, offX: state.guide.offsetX||0, offY: state.guide.offsetY||0 };
+    return;
+  }
+  if(currentTool === "fill"){
+    const cell = eventToCell(evt);
+    if(!cell) return;
+    pushHistory();
+    floodFillCell(cell.x, cell.y, selectedColor);
+    redrawDrawCanvas();
+    renderFrameThumbs();
+    scheduleAutosave();
+    return;
+  }
+  const cell = eventToCell(evt);
+  if(!cell) return;
+  isDrawing = true;
+  pushHistory();
+  paintCell(cell.x, cell.y);
+  redrawDrawCanvas();
+});
+window.addEventListener("pointermove", (evt)=>{
+  if(isPanning && panStart){
+    canvasWrapOuter.scrollLeft = panStart.sl - (evt.clientX - panStart.x);
+    canvasWrapOuter.scrollTop  = panStart.st - (evt.clientY - panStart.y);
+    return;
+  }
+  if(isGuideDragging && guideDragStart){
+    const rect = drawCanvas.getBoundingClientRect();
+    const scale = drawCanvas.width / rect.width; // 화면 픽셀 이동량을 캔버스 해상도 기준으로 환산
+    state.guide.offsetX = guideDragStart.offX + (evt.clientX - guideDragStart.x) * scale;
+    state.guide.offsetY = guideDragStart.offY + (evt.clientY - guideDragStart.y) * scale;
+    drawGuideToCanvas();
+    return;
+  }
+  if(!isDrawing) return;
+  const cell = eventToCell(evt);
+  if(!cell) return;
+  paintCell(cell.x, cell.y);
+  redrawDrawCanvas();
+});
+window.addEventListener("pointerup", ()=>{
+  if(isDrawing){ isDrawing=false; renderFrameThumbs(); scheduleAutosave(); }
+  if(isPanning){ isPanning=false; canvasWrapOuter.style.cursor = "grab"; }
+  if(isGuideDragging){ isGuideDragging=false; guideDragStart=null; scheduleAutosave(); }
+});
+
+/* =========================================================
+   10. 확대/축소
+   ========================================================= */
+$("zoom-in-btn").addEventListener("click", ()=>{
+  zoomIndex = Math.min(zoomIndex+1, ZOOM_STEPS.length-1);
+  setCanvasPixelSize(); drawGridCanvas(); redrawDrawCanvas(); drawGuideToCanvas();
+});
+$("zoom-out-btn").addEventListener("click", ()=>{
+  zoomIndex = Math.max(zoomIndex-1, 0);
+  setCanvasPixelSize(); drawGridCanvas(); redrawDrawCanvas(); drawGuideToCanvas();
+});
+$("zoom-reset-btn").addEventListener("click", ()=>{
+  zoomIndex = 2;
+  setCanvasPixelSize(); drawGridCanvas(); redrawDrawCanvas(); drawGuideToCanvas();
+});
+
+/* =========================================================
+   11. 가이드 (기본 가이드 / 사용자 업로드 가이드)
+   ========================================================= */
+function updateGuideControlsFromState(){
+  guideToggle.checked = state.guide.on;
+  guideOpacity.value = state.guide.opacity;
+  guideScaleInput.value = Math.round((state.guide.scale||1)*100);
+  renderGuideGallery();
+}
+
+function renderGuideGallery(){
+  guideGallery.innerHTML = "";
+  const list = BUILTIN_GUIDES[state.size] || [];
+  list.forEach(g=>{
+    const tile = document.createElement("div");
+    tile.className = "guide-thumb" + (state.guide.type === "builtin" && state.guide.builtinId === g.id ? " selected" : "");
+    const img = document.createElement("img");
+    img.src = g.src;
+    img.onerror = ()=>{ tile.innerHTML = ""; tile.classList.add("missing"); tile.textContent = g.label + " 없음"; };
+    tile.appendChild(img);
+    const label = document.createElement("div");
+    label.className = "label"; label.textContent = g.label;
+    tile.appendChild(label);
+    tile.addEventListener("click", ()=>{
+      state.guide.type = "builtin";
+      state.guide.builtinId = g.id;
+      state.guide.offsetX = 0; state.guide.offsetY = 0; state.guide.scale = 1; // 가이드를 바꾸면 위치/크기를 다시 맞출 수 있도록 초기화
+      loadGuideForState();
+      updateGuideControlsFromState();
+      scheduleAutosave();
+    });
+    guideGallery.appendChild(tile);
+  });
+  if(state.guide.customSrc){
+    const tile = document.createElement("div");
+    tile.className = "guide-thumb" + (state.guide.type === "custom" ? " selected" : "");
+    const img = document.createElement("img");
+    img.src = state.guide.customSrc;
+    tile.appendChild(img);
+    const label = document.createElement("div");
+    label.className = "label"; label.textContent = "내 이미지";
+    tile.appendChild(label);
+    tile.addEventListener("click", ()=>{
+      state.guide.type = "custom";
+      state.guide.offsetX = 0; state.guide.offsetY = 0; state.guide.scale = 1;
+      loadGuideForState();
+      updateGuideControlsFromState();
+      scheduleAutosave();
+    });
+    guideGallery.appendChild(tile);
+  }
+}
+
+function loadGuideForState(){
+  if(state.guide.type === "custom" && state.guide.customSrc){
+    const img = new Image();
+    img.onload = ()=>{ guideImageEl = img; drawGuideToCanvas(); };
+    img.onerror = ()=>{ guideImageEl = null; drawGuideToCanvas(); };
+    img.src = state.guide.customSrc;
+  } else {
+    const list = BUILTIN_GUIDES[state.size] || [];
+    const found = list.find(g=>g.id === state.guide.builtinId) || list[0];
+    if(!found){ guideImageEl = null; drawGuideToCanvas(); return; }
+    const img = new Image();
+    img.onload = ()=>{ guideImageEl = img; drawGuideToCanvas(); };
+    img.onerror = ()=>{ guideImageEl = null; drawGuideToCanvas(); }; // 파일 미준비 시 안내만 표시
+    img.src = found.src;
+  }
+}
+
+function drawGuideToCanvas(){
+  gCtx.clearRect(0,0,guideCanvas.width, guideCanvas.height);
+  if(!state.guide.on) return;
+  gCtx.globalAlpha = state.guide.opacity/100;
+  if(guideImageEl){
+    gCtx.filter = "grayscale(100%)"; // 가이드는 항상 회색조로 표시해서 실제 색칠과 헷갈리지 않게 함
+    const scale = state.guide.scale || 1;
+    const w = guideCanvas.width * scale;
+    const h = guideCanvas.height * scale;
+    const baseX = (guideCanvas.width - w) / 2 + (state.guide.offsetX || 0);
+    const baseY = (guideCanvas.height - h) / 2 + (state.guide.offsetY || 0);
+    gCtx.drawImage(guideImageEl, baseX, baseY, w, h);
+    gCtx.filter = "none";
+  } else {
+    // 가이드 파일이 아직 없을 때 안내 표시
+    gCtx.globalAlpha = 1;
+    gCtx.fillStyle = "#ddd";
+    gCtx.fillRect(0,0,guideCanvas.width, guideCanvas.height);
+    gCtx.fillStyle = "#999";
+    gCtx.font = "12px sans-serif";
+    gCtx.textAlign = "center";
+    gCtx.fillText("가이드 이미지 없음", guideCanvas.width/2, guideCanvas.height/2);
+  }
+  gCtx.globalAlpha = 1;
+}
+
+guideToggle.addEventListener("change", ()=>{
+  state.guide.on = guideToggle.checked;
+  drawGuideToCanvas(); scheduleAutosave();
+});
+guideOpacity.addEventListener("input", ()=>{
+  state.guide.opacity = parseInt(guideOpacity.value,10);
+  drawGuideToCanvas(); scheduleAutosave();
+});
+$("guide-upload-btn").addEventListener("click", ()=> $("guide-file-input").click());
+$("guide-file-input").addEventListener("change", (evt)=>{
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    state.guide.customSrc = reader.result;
+    state.guide.type = "custom";
+    state.guide.offsetX = 0; state.guide.offsetY = 0; state.guide.scale = 1;
+    loadGuideForState();
+    updateGuideControlsFromState();
+    scheduleAutosave();
+    showToast("가이드 이미지를 등록했어요");
+  };
+  reader.readAsDataURL(file);
+});
+
+/* =========================================================
+   12. 프레임 (추가/삭제/복제/전환/대표설정)
+   ========================================================= */
+function renderFrameThumbs(){
+  frameList.innerHTML = "";
+  state.frames.forEach((pixels, i)=>{
+    const wrap = document.createElement("div");
+    wrap.className = "frame-thumb" + (i === state.currentFrame ? " active" : "");
+
+    const star = document.createElement("div");
+    star.className = "star" + (i === state.repFrame ? " is-rep" : "");
+    star.textContent = "★";
+    star.title = "대표 프레임으로 설정";
+    star.addEventListener("click",(e)=>{ e.stopPropagation(); state.repFrame = i; renderFrameThumbs(); scheduleAutosave(); });
+    wrap.appendChild(star);
+
+    if(state.frames.length > 1){
+      const del = document.createElement("div");
+      del.className = "del"; del.textContent = "✕";
+      del.title = "프레임 삭제";
+      del.addEventListener("click",(e)=>{
+        e.stopPropagation();
+        if(!confirm("이 프레임을 삭제할까요?")) return;
+        state.frames.splice(i,1);
+        if(state.currentFrame >= state.frames.length) state.currentFrame = state.frames.length-1;
+        if(state.repFrame >= state.frames.length) state.repFrame = 0;
+        history=[]; redoStack=[];
+        redrawDrawCanvas(); renderFrameThumbs(); scheduleAutosave();
+      });
+      wrap.appendChild(del);
+    }
+
+    const c = document.createElement("canvas");
+    c.width = state.size; c.height = state.size;
+    const tctx = c.getContext("2d");
+    for(let y=0;y<state.size;y++) for(let x=0;x<state.size;x++){
+      const col = pixels[idxOf(x,y,state.size)];
+      if(col){ tctx.fillStyle = col; tctx.fillRect(x,y,1,1); }
+    }
+    wrap.appendChild(c);
+
+    wrap.addEventListener("click", ()=>{
+      state.currentFrame = i;
+      history=[]; redoStack=[];
+      redrawDrawCanvas(); renderFrameThumbs();
+    });
+    frameList.appendChild(wrap);
+  });
+}
+
+$("frame-add-btn").addEventListener("click", ()=>{
+  state.frames.push(new Array(state.size*state.size).fill(null));
+  state.currentFrame = state.frames.length-1;
+  history=[]; redoStack=[];
+  redrawDrawCanvas(); renderFrameThumbs(); scheduleAutosave();
+});
+$("frame-dup-btn").addEventListener("click", ()=>{
+  state.frames.splice(state.currentFrame+1, 0, currentPixels().slice());
+  state.currentFrame += 1;
+  history=[]; redoStack=[];
+  redrawDrawCanvas(); renderFrameThumbs(); scheduleAutosave();
+});
+
+/* =========================================================
+   13. 자동 저장 (localStorage)
+   ========================================================= */
+function scheduleAutosave(immediate){
+  saveIndicator.textContent = "… 저장 중";
+  clearTimeout(saveTimer);
+  const doSave = ()=>{
+    state.updatedAt = Date.now();
+    localStorage.setItem(storageKey(state.className, state.studentName), JSON.stringify(state));
+    saveIndicator.textContent = "✓ 저장됨";
+  };
+  if(immediate) doSave(); else saveTimer = setTimeout(doSave, 500);
+}
+
+/* =========================================================
+   14. PNG 내보내기 / 대표 프레임 PNG Blob 생성
+   ========================================================= */
+function framePixelsToBlob(pixels, callback){
+  const c = document.createElement("canvas");
+  c.width = state.size * EXPORT_CELL;
+  c.height = state.size * EXPORT_CELL;
+  const ctx = c.getContext("2d");
+  for(let y=0;y<state.size;y++){
+    for(let x=0;x<state.size;x++){
+      const col = pixels[idxOf(x,y,state.size)];
+      if(col){
+        ctx.fillStyle = col;
+        ctx.fillRect(x*EXPORT_CELL, y*EXPORT_CELL, EXPORT_CELL, EXPORT_CELL);
+      }
+    }
+  }
+  c.toBlob(callback, "image/png");
+}
+
+$("png-btn").addEventListener("click", ()=>{
+  framePixelsToBlob(currentPixels(), (blob)=>{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${state.studentName}_pixelart_frame${state.currentFrame+1}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+});
+
+/* =========================================================
+   15. 제출 (Cloudinary unsigned upload, 대표 프레임만 업로드)
+   ========================================================= */
+$("submit-btn").addEventListener("click", ()=>{
+  if(!confirm("대표 프레임(★)을 선생님께 제출할까요?")) return;
+  $("submit-btn").disabled = true;
+  const repPixels = state.frames[state.repFrame];
+  framePixelsToBlob(repPixels, async (blob)=>{
+    try{
+      const form = new FormData();
+      form.append("file", blob, `${state.studentName}_pixelart.png`);
+      form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      form.append("folder", `pixelart/${state.className}`);
+      form.append("context", `student=${state.studentName}`);
+
+      const res = await fetch(CLOUDINARY_URL, { method:"POST", body: form });
+      if(!res.ok) throw new Error("업로드 실패");
+      await res.json();
+      state.submitted = true;
+      updateMinigameButtonState();
+      scheduleAutosave();
+      showToast("🎉 제출 완료! 잘했어요", 3500);
+    }catch(err){
+      showToast("⚠️ 제출에 실패했어요. 다시 시도해주세요");
+    }finally{
+      $("submit-btn").disabled = false;
+    }
+  });
+});
+
+$("minigame-btn").addEventListener("click", ()=>{
+  const repPixels = state.frames[state.repFrame] || state.frames[0];
+  const isBlank = !repPixels.some(c => !!c);
+  if(isBlank){
+    showToast("⚠️ 대표 캐릭터(★)에 그림이 없어요! 먼저 그림을 그려주세요");
+    return;
+  }
+  const url = `minigame.html?class=${encodeURIComponent(state.className)}&name=${encodeURIComponent(state.studentName)}`;
+  location.href = url;
+});
+
+$("palette-toggle-btn").addEventListener("click", ()=>{
+  const collapsed = $("palette-panel").classList.toggle("collapsed");
+  $("palette-toggle-btn").textContent = collapsed ? "◀" : "▶";
+});
+
+$("fullscreen-toggle-btn").addEventListener("click", ()=>{
+  if(document.fullscreenElement){
+    document.exitFullscreen().catch(()=>{});
+  } else if(document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen().catch(()=>{});
+  }
+});
+
+/* =========================================================
+   16. 창 크기 변경 대응
+   ========================================================= */
+window.addEventListener("resize", ()=>{
+  if(!state) return;
+  setCanvasPixelSize(); drawGridCanvas(); redrawDrawCanvas(); drawGuideToCanvas();
+});
+
+})();
+</script>
+</body>
+</html>

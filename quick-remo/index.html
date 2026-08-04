@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>퀵 런처 리모컨</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Special+Elite&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#15130f;
+    --bg-glow: rgba(255,178,56,0.06);
+    --row-top:#241f19;
+    --row-top-2:#191510;
+    --row-border: rgba(255,255,255,0.06);
+    --amber:#ffb238;
+    --amber-bright:#ffdd8f;
+    --amber-dim: rgba(255,178,56,0.16);
+    --text:#f5f1e8;
+    --text-dim:#9a9188;
+    --danger:#ff7a6b;
+    --ok:#7bd88f;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:
+      radial-gradient(ellipse 600px 400px at 50% -10%, var(--bg-glow), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    overflow-x:hidden;
+  }
+
+  .display-font{ font-family:'Do Hyeon', -apple-system, "Malgun Gothic", sans-serif; }
+  .mono-font{ font-family:'Special Elite', monospace; }
+
+  /* ==========================================================================
+     랜딩 화면 (일반 탭으로 열었을 때: 리모컨 창을 여는 버튼만 있음)
+     ========================================================================== */
+  .landing{
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding: 24px;
+  }
+  .landing-card{
+    max-width:420px; width:100%;
+    background: linear-gradient(160deg, var(--row-top), var(--row-top-2));
+    border: 1px solid var(--row-border);
+    border-radius: 22px;
+    padding: 32px 26px;
+    text-align:center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+  .landing-card .icon{ font-size:40px; margin-bottom:10px; }
+  .landing-card h1{
+    font-size: clamp(20px, 4vw, 24px);
+    margin: 0 0 8px; color: var(--text);
+  }
+  .landing-card p{
+    color: var(--text-dim); font-size:14px; line-height:1.6;
+    margin: 0 0 22px;
+  }
+  .open-btn{
+    appearance:none; border:none; cursor:pointer;
+    background: var(--amber); color:#1a1204;
+    font-family:'Do Hyeon', sans-serif;
+    font-size:17px;
+    padding: 14px 26px;
+    border-radius: 14px;
+    box-shadow: 0 6px 0 #b87c1e, 0 10px 18px rgba(0,0,0,0.4);
+    transition: transform .1s ease;
+    width:100%;
+  }
+  .open-btn:active{ transform: translateY(4px); box-shadow: 0 2px 0 #b87c1e; }
+
+  .landing-note{
+    margin-top:16px; font-size:12px; color: var(--text-dim); line-height:1.6;
+  }
+  .landing-note a{ color: var(--amber-bright); }
+
+  /* ==========================================================================
+     리모컨 화면 (왼쪽에 작게 도킹되는 팝업 창)
+     ========================================================================== */
+  .remote{
+    display:none;
+    min-height:100vh;
+    padding: 14px 12px;
+    flex-direction:column;
+  }
+
+  /* 투명도가 적용되는 대상: 슬라이더 자체는 이 밖에 있어 항상 또렷하게 보임 */
+  .remote-panel{
+    display:flex; flex-direction:column; flex:1; min-height:0;
+    opacity: 0;
+    transition: opacity .45s ease;
+  }
+
+  .opacity-control{
+    display:flex; align-items:center; gap:8px;
+    margin-top:10px; padding-top:10px;
+    border-top: 1px solid var(--row-border);
+    font-size:11px; color: var(--text-dim);
+  }
+  .opacity-control .icon{ flex:0 0 auto; font-size:13px; }
+  .opacity-control input[type="range"]{
+    flex:1; -webkit-appearance:none; appearance:none;
+    height:4px; border-radius:2px;
+    background: linear-gradient(90deg, var(--amber) 0%, var(--amber) var(--fill, 60%), rgba(255,255,255,0.12) var(--fill, 60%));
+    outline:none;
+  }
+  .opacity-control input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:14px; height:14px; border-radius:50%;
+    background: var(--amber-bright);
+    box-shadow: 0 0 4px rgba(255,178,56,0.6);
+    cursor:pointer;
+  }
+  .opacity-control input[type="range"]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; border:none;
+    background: var(--amber-bright);
+    box-shadow: 0 0 4px rgba(255,178,56,0.6);
+    cursor:pointer;
+  }
+  .opacity-control .value{
+    flex:0 0 auto; width:32px; text-align:right;
+    font-family:'Special Elite', monospace; color: var(--amber);
+  }
+
+  .remote-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 2px 4px 14px;
+  }
+  .remote-header h1{
+    font-size:15px; margin:0; letter-spacing:0.5px;
+    color: var(--text-dim); font-weight:500; text-transform:uppercase;
+  }
+  .status-dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--text-dim);
+    transition: background .25s, box-shadow .25s;
+  }
+  .status-dot.ok{ background:var(--ok); box-shadow:0 0 6px var(--ok); }
+  .status-dot.error{ background:var(--danger); box-shadow:0 0 6px var(--danger); }
+  .status-dot.loading{ background:var(--amber); box-shadow:0 0 6px var(--amber); animation: pulse 1s infinite ease-in-out; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+  .status-btn{
+    display:flex; align-items:center; gap:6px;
+    appearance:none; background:transparent; border:none; cursor:pointer;
+    font-size:10px; color: var(--text-dim);
+    font-family:'Special Elite', monospace;
+    padding:3px 2px; border-radius:6px;
+    transition: color .15s;
+  }
+  .status-btn:hover{ color: var(--amber-bright); }
+  .status-btn:focus-visible{ outline: 2px solid var(--amber); outline-offset:2px; }
+
+  .remote-list{
+    display:flex; flex-direction:column; gap:8px;
+    flex:1;
+  }
+
+  .remote-row{
+    appearance:none; border:none; cursor:pointer; text-align:left;
+    display:flex; align-items:center; gap:10px;
+    background: linear-gradient(160deg, var(--row-top), var(--row-top-2));
+    border: 1px solid var(--row-border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: var(--text);
+    transition: transform .1s ease, box-shadow .1s ease, background .15s ease;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+    opacity:0; transform: translateX(-8px);
+    animation: slide-in .35s ease forwards;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  @keyframes slide-in{ to{ opacity:1; transform:translateX(0); } }
+
+  .remote-row:hover{ background: linear-gradient(160deg, #2c2620, #1c1712); }
+  .remote-row:active, .remote-row.pressed{
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    background: linear-gradient(160deg, #34291a, #1c1712);
+  }
+  .remote-row.pressed{ border-color: var(--amber); }
+
+  .remote-icon{
+    flex: 0 0 auto;
+    width:32px; height:32px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    background: var(--amber-dim);
+    font-size:17px;
+  }
+
+  .remote-info{ flex:1; min-width:0; }
+  .remote-name{
+    font-family:'Do Hyeon', sans-serif;
+    font-size:14px; line-height:1.2;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .remote-shortcut{
+    font-family:'Special Elite', monospace;
+    font-size:10px; color: var(--amber);
+    margin-top:2px;
+  }
+
+  .remote-footer{
+    margin-top:12px; padding-top:10px;
+    border-top: 1px solid var(--row-border);
+    font-size:11px; color: var(--text-dim); text-align:center; line-height:1.6;
+  }
+
+  .remote-error{
+    text-align:center; padding: 20px 8px; color: var(--text-dim); font-size:13px;
+  }
+  .remote-error .msg{ color: var(--text); margin-bottom:12px; font-family:'Do Hyeon', sans-serif; }
+  .retry-btn{
+    appearance:none; border:none; cursor:pointer;
+    background: var(--amber); color:#1a1204;
+    font-family:'Do Hyeon', sans-serif;
+    font-size:13px; padding: 8px 18px; border-radius:10px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= 랜딩 화면 ================= -->
+<div class="landing" id="landingView">
+  <div class="landing-card">
+    <div class="icon">🎛️</div>
+    <h1 class="display-font">퀵 런처 리모컨</h1>
+    <p>작은 창이 화면 왼쪽에 고정되어 열립니다. 이 창이 활성화(포커스)되어 있을 때, 미니 매크로 키보드의 <b>Ctrl+Alt+1~6</b>을 누르면 해당 사이트가 새 탭으로 즉시 열립니다.</p>
+    <button class="open-btn display-font" id="openRemoteBtn">리모컨 창 열기</button>
+    <div class="landing-note">팝업이 차단되었다는 안내가 뜨면, 브라우저 주소창의 팝업 차단 아이콘을 눌러 이 사이트의 팝업을 허용해 주세요.</div>
+  </div>
+</div>
+
+<!-- ================= 리모컨 화면 ================= -->
+<div class="remote" id="remoteView">
+  <div class="remote-panel" id="remotePanel">
+    <div class="remote-header">
+      <h1 class="mono-font">REMOTE</h1>
+      <button class="status-btn" id="statusBtn" type="button" title="연결된 구글 시트 열기">
+        <span id="statusText">연결 중</span><span class="status-dot loading" id="statusDot"></span>
+      </button>
+    </div>
+    <div class="remote-list" id="remoteList"></div>
+    <div class="remote-footer" id="remoteFooter">이 창을 클릭해 활성화한 뒤<br>Ctrl+Alt+숫자를 눌러보세요</div>
+  </div>
+  <div class="opacity-control">
+    <span class="icon">◐</span>
+    <input type="range" id="opacitySlider" min="25" max="100" value="60" aria-label="리모컨 투명도">
+    <span class="value" id="opacityValue">60%</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  /* =========================================================================
+     설정 (CONFIG) — 버전1과 동일한 고정 스프레드시트
+     ========================================================================= */
+  const CONFIG = {
+    SHEET_ID: "1WZD8_ZpG9FCYPGcjFfz4iCC8TpmkxethSoyLxbW5zVs",
+    GID: "0",
+    get CSV_URL(){
+      return `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/gviz/tq?tqx=out:csv&gid=${this.GID}&_=${Date.now()}`;
+    }
+  };
+
+  const isRemote = new URLSearchParams(location.search).get("remote") === "1";
+
+  const landingView = document.getElementById("landingView");
+  const remoteView = document.getElementById("remoteView");
+  const openRemoteBtn = document.getElementById("openRemoteBtn");
+
+  /* ---------- 왼쪽에 도킹된 작은 팝업으로 리모컨 열기 ---------- */
+  function openRemoteWindow(){
+    const width = 280;
+    const height = window.screen.availHeight || window.screen.height;
+    const url = location.pathname + "?remote=1";
+    const features = `width=${width},height=${height},left=0,top=0,resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no`;
+    const win = window.open(url, "quicklauncher_remote", features);
+    if (!win){
+      alert("팝업이 차단되었어요. 브라우저 주소창의 팝업 차단 아이콘을 눌러 허용한 뒤 다시 시도해 주세요.");
+    }
+  }
+
+  if (openRemoteBtn){
+    openRemoteBtn.addEventListener("click", openRemoteWindow);
+  }
+
+  if (!isRemote){
+    // 랜딩 화면만 사용
+    return;
+  }
+
+  /* =========================================================================
+     아래부터는 리모컨(팝업) 화면 전용 로직
+     ========================================================================= */
+  landingView.style.display = "none";
+  remoteView.style.display = "flex";
+  document.title = "퀵 런처 리모컨";
+
+  const remoteList = document.getElementById("remoteList");
+  const remoteFooter = document.getElementById("remoteFooter");
+  const remotePanel = document.getElementById("remotePanel");
+  const statusDot = document.getElementById("statusDot");
+  const statusText = document.getElementById("statusText");
+  const statusBtn = document.getElementById("statusBtn");
+  const opacitySlider = document.getElementById("opacitySlider");
+  const opacityValue = document.getElementById("opacityValue");
+
+  statusBtn.addEventListener("click", () => {
+    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/edit#gid=${CONFIG.GID}`;
+    window.open(url, "_blank", "noopener");
+  });
+
+  let buttonsData = [];
+
+  /* ---------- 투명도: 마지막으로 설정한 값을 기억 ---------- */
+  const OPACITY_KEY = "quicklauncher_remote_opacity";
+  let savedOpacity = 60;
+  try {
+    const raw = localStorage.getItem(OPACITY_KEY);
+    if (raw !== null) savedOpacity = Math.min(100, Math.max(25, parseInt(raw, 10)));
+  } catch (e) {}
+
+  function applyOpacity(percent){
+    const ratio = percent / 100;
+    remotePanel.style.opacity = ratio;
+    opacitySlider.style.setProperty("--fill", percent + "%");
+    opacityValue.textContent = percent + "%";
+  }
+
+  opacitySlider.value = savedOpacity;
+  applyOpacity(0); // 처음엔 완전히 투명한 상태로 시작해서 반투명하게 서서히 나타남
+  opacitySlider.style.setProperty("--fill", savedOpacity + "%");
+  opacityValue.textContent = savedOpacity + "%";
+
+  // 창이 열리자마자 저장된 투명도(기본 60%)까지 부드럽게 나타남
+  requestAnimationFrame(() => {
+    setTimeout(() => applyOpacity(savedOpacity), 60);
+  });
+
+  opacitySlider.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value, 10);
+    applyOpacity(val);
+    try { localStorage.setItem(OPACITY_KEY, val); } catch (e) {}
+  });
+
+  function setStatus(state){
+    statusDot.className = "status-dot " + state;
+    statusText.textContent = state === "ok" ? "연결됨" : state === "error" ? "연결 실패" : "연결 중";
+  }
+
+  /* ---------- 아주 작은 CSV 파서 ---------- */
+  function parseCSV(text){
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++){
+      const c = text[i], next = text[i+1];
+      if (inQuotes){
+        if (c === '"' && next === '"'){ field += '"'; i++; }
+        else if (c === '"'){ inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"'){ inQuotes = true; }
+        else if (c === ','){ row.push(field); field = ""; }
+        else if (c === '\n' || c === '\r'){
+          if (field !== "" || row.length){ row.push(field); rows.push(row); row = []; field = ""; }
+          if (c === '\r' && next === '\n') i++;
+        } else { field += c; }
+      }
+    }
+    if (field !== "" || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(r => r.some(f => f.trim() !== ""));
+  }
+
+  function findCol(header, keywords){
+    const lower = header.map(h => h.trim().toLowerCase());
+    for (const kw of keywords){
+      const idx = lower.findIndex(h => h.includes(kw));
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  }
+
+  function rowsToButtons(rows){
+    if (!rows.length) return [];
+    const header = rows[0];
+    const iNo   = findCol(header, ["번호", "no", "number", "num"]);
+    const iName = findCol(header, ["이름", "name"]);
+    const iUrl  = findCol(header, ["url", "주소", "링크"]);
+    const iIcon = findCol(header, ["아이콘", "icon"]);
+
+    const dataRows = rows.slice(1);
+    const items = dataRows.map((r, idx) => ({
+      no: iNo !== -1 ? parseInt(r[iNo], 10) || (idx + 1) : (idx + 1),
+      name: (iName !== -1 ? r[iName] : r[1] || "").trim(),
+      url: (iUrl !== -1 ? r[iUrl] : r[2] || "").trim(),
+      icon: (iIcon !== -1 ? r[iIcon] : r[3] || "").trim()
+    })).filter(item => item.name && item.url);
+
+    items.sort((a, b) => a.no - b.no);
+    return items;
+  }
+
+  function normalizeUrl(url){
+    if (!/^https?:\/\//i.test(url)) return "https://" + url;
+    return url;
+  }
+
+  function render(items){
+    remoteList.innerHTML = "";
+
+    if (!items.length){
+      remoteList.innerHTML = `
+        <div class="remote-error">
+          <div class="msg">사이트 목록을 찾지 못했어요.</div>
+          <button class="retry-btn" id="retryBtn">다시 시도</button>
+        </div>`;
+      document.getElementById("retryBtn").addEventListener("click", load);
+      setStatus("error");
+      return;
+    }
+
+    items.forEach((item, idx) => {
+      const row = document.createElement("button");
+      row.className = "remote-row";
+      row.style.setProperty("--i", idx);
+      row.dataset.index = item.no;
+      row.setAttribute("aria-label", `${item.name} 열기 (Ctrl+Alt+${item.no})`);
+
+      const icon = document.createElement("span");
+      icon.className = "remote-icon";
+      icon.textContent = item.icon || item.name.trim().charAt(0);
+
+      const info = document.createElement("span");
+      info.className = "remote-info";
+      const name = document.createElement("div");
+      name.className = "remote-name";
+      name.textContent = item.name;
+      const shortcut = document.createElement("div");
+      shortcut.className = "remote-shortcut";
+      shortcut.textContent = `Ctrl+Alt+${item.no}`;
+      info.append(name, shortcut);
+
+      row.append(icon, info);
+      row.addEventListener("click", () => openSite(item, row));
+      remoteList.appendChild(row);
+    });
+  }
+
+  function openSite(item, rowEl){
+    if (rowEl){
+      rowEl.classList.add("pressed");
+      setTimeout(() => rowEl.classList.remove("pressed"), 160);
+    }
+    window.open(normalizeUrl(item.url), "_blank", "noopener");
+  }
+
+  function showLoadError(){
+    remoteList.innerHTML = `
+      <div class="remote-error">
+        <div class="msg">시트를 불러오지 못했어요.</div>
+        <button class="retry-btn" id="retryBtn">다시 시도</button>
+      </div>`;
+    document.getElementById("retryBtn").addEventListener("click", load);
+    setStatus("error");
+  }
+
+  async function load(){
+    setStatus("loading");
+    try {
+      const res = await fetch(CONFIG.CSV_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      const rows = parseCSV(text);
+      const items = rowsToButtons(rows);
+      buttonsData = items;
+      render(items);
+      if (items.length) setStatus("ok");
+    } catch (err){
+      showLoadError();
+    }
+  }
+
+  /* ---------- 핵심 기능: Ctrl+Alt+숫자 → 사이트 즉시 실행 ---------- */
+  window.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey && e.altKey)) return;
+    const n = parseInt(e.key, 10);
+    if (Number.isNaN(n) || n < 1 || n > 9) return;
+
+    const item = buttonsData.find(b => b.no === n);
+    if (!item) return;
+
+    e.preventDefault();
+    const rowEl = remoteList.querySelector(`.remote-row[data-index="${n}"]`);
+    openSite(item, rowEl);
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

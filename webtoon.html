@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>웹툰 만들기 클래스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#131316;
+    --panel-white:#fbfaf6;
+    --gutter:#1b1b22;
+    --pop-red:#ef4056;
+    --pop-yellow:#ffcf3f;
+    --pop-blue:#3b6fe0;
+    --muted:#8b8b95;
+    --line:#131316;
+    --success:#2fb676;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Noto Sans KR', system-ui, sans-serif;
+    background:var(--gutter);
+    color:var(--ink);
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
+  .display{font-family:'Jua', 'Noto Sans KR', sans-serif; letter-spacing:.2px;}
+  .screen{
+    min-height:100vh;
+    min-height:100dvh;
+    display:none;
+    flex-direction:column;
+  }
+  .screen.active{display:flex;}
+
+  .halftone{
+    background-image: radial-gradient(var(--ink) 1px, transparent 1.3px);
+    background-size: 10px 10px;
+    opacity:.06;
+    position:absolute; inset:0; pointer-events:none;
+  }
+
+  /* ---------- START SCREEN ---------- */
+  #screen-start{
+    background:var(--pop-yellow);
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    position:relative;
+    overflow:hidden;
+  }
+  .start-card{
+    position:relative;
+    background:var(--panel-white);
+    border:4px solid var(--line);
+    border-radius:20px;
+    padding:32px 24px 28px;
+    width:100%;
+    max-width:380px;
+    box-shadow:8px 8px 0 var(--ink);
+  }
+  .start-badge{
+    position:absolute;
+    top:-22px; left:50%;
+    transform:translateX(-50%) rotate(-4deg);
+    background:var(--pop-red);
+    color:#fff;
+    font-family:'Jua', sans-serif;
+    padding:8px 18px;
+    border:3px solid var(--line);
+    border-radius:999px;
+    font-size:14px;
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .start-title{
+    font-size:32px;
+    text-align:center;
+    margin:18px 0 4px;
+    line-height:1.25;
+  }
+  .start-sub{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    margin-bottom:22px;
+    font-weight:500;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;
+    font-size:14px;
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .field select, .field input{
+    width:100%;
+    padding:12px 14px;
+    border:3px solid var(--line);
+    border-radius:10px;
+    font-size:16px;
+    font-family:inherit;
+    font-weight:500;
+    background:#fff;
+  }
+  .field select:focus, .field input:focus{
+    outline:3px solid var(--pop-blue);
+    outline-offset:1px;
+  }
+  .btn{
+    display:block;
+    width:100%;
+    border:3px solid var(--line);
+    border-radius:12px;
+    padding:14px;
+    font-family:'Jua', sans-serif;
+    font-size:17px;
+    cursor:pointer;
+    text-align:center;
+    transition:transform .08s ease;
+  }
+  .btn:active{transform:translateY(2px);}
+  .btn-primary{
+    background:var(--pop-red);
+    color:#fff;
+    box-shadow:5px 5px 0 var(--ink);
+    margin-top:8px;
+  }
+  .btn-primary:disabled{
+    background:#c9c9ce; color:#fff; box-shadow:none; cursor:not-allowed;
+  }
+  .hint-error{
+    color:var(--pop-red);
+    font-size:13px;
+    margin-top:8px;
+    display:none;
+    font-weight:700;
+  }
+
+  /* ---------- UPLOAD SCREEN ---------- */
+  #screen-upload{background:var(--gutter);}
+  .upload-header{
+    padding:14px 14px 6px;
+    color:#fff;
+  }
+  .upload-header .who{font-size:13px; opacity:.75; font-weight:500;}
+  .upload-header .title{font-family:'Jua', sans-serif; font-size:19px;}
+  .footer-hint{
+    color:#a9a9b3;
+    font-size:12px;
+    text-align:center;
+    margin:0 0 8px;
+    font-weight:500;
+  }
+
+  .ending-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    z-index:80;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .15s ease;
+  }
+  .ending-modal.show{opacity:1; pointer-events:auto;}
+  .ending-modal-card{
+    background:var(--panel-white);
+    border:4px solid var(--line);
+    border-radius:18px;
+    padding:22px 20px;
+    width:100%;
+    max-width:280px;
+    text-align:center;
+    box-shadow:6px 6px 0 var(--ink);
+  }
+  .ending-modal-q{
+    font-family:'Jua', sans-serif;
+    font-size:19px;
+    margin:0 0 16px;
+  }
+  .ending-modal-btns{display:flex; gap:10px;}
+  .ending-modal-btns .btn{padding:11px; font-size:15px; margin-top:0;}
+  .ending-modal-btns .btn-no{background:#fff; color:var(--ink); box-shadow:4px 4px 0 var(--ink);}
+  .ending-modal-btns .btn-yes{background:var(--pop-red); color:#fff; box-shadow:4px 4px 0 var(--ink);}
+
+  .upload-body{
+    flex:1;
+    display:flex;
+    gap:10px;
+    padding:0 12px calc(12px + env(safe-area-inset-bottom));
+    overflow:hidden;
+    min-height:0;
+  }
+
+  /* 왼쪽: 미리보기 (넓게) */
+  .preview-pane{
+    flex:1;
+    min-width:0;
+    background:var(--ink);
+    border-radius:20px;
+    border:4px solid #35353f;
+    padding:8px;
+    display:flex;
+    flex-direction:column;
+  }
+  .preview-pane .pane-label{
+    color:var(--pop-yellow);
+    font-family:'Jua', sans-serif;
+    font-size:12px;
+    margin-bottom:6px;
+    padding-left:2px;
+  }
+  .preview-scroll{
+    flex:1;
+    background:#000;
+    border-radius:12px;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    display:flex;
+    flex-direction:column;
+  }
+  .preview-scroll::-webkit-scrollbar{width:0;}
+  .preview-empty{
+    margin:auto;
+    text-align:center;
+    color:#6a6a75;
+    font-size:13px;
+    padding:20px;
+    line-height:1.5;
+    font-weight:500;
+  }
+  .preview-page{
+    width:100%;
+    display:block;
+    aspect-ratio:800/1280;
+    object-fit:cover;
+    border-bottom:1px solid #000;
+  }
+
+  /* 오른쪽: 좁은 메뉴 */
+  .slot-pane{
+    flex:0 0 116px;
+    width:116px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding-right:2px;
+  }
+
+  .page-item{
+    flex-shrink:0;
+  }
+  .page-thumb{
+    position:relative;
+    width:100%;
+    aspect-ratio:800/1280;
+    border-radius:8px;
+    border:2px solid var(--line);
+    background:#f1f1ee;
+    overflow:hidden;
+    touch-action:none;
+    cursor:grab;
+  }
+  .page-thumb img{
+    width:100%; height:100%; object-fit:cover; display:block;
+    pointer-events:none;
+    -webkit-user-drag:none;
+  }
+  .page-thumb .badge{
+    position:absolute; top:3px; left:3px;
+    width:18px; height:18px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px;
+    font-weight:900;
+    color:#fff;
+  }
+  .badge.uploading{background:var(--pop-blue); animation:spin 1s linear infinite;}
+  .badge.error{background:var(--pop-red);}
+  .badge.warn{background:#c98a00;}
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .del-btn-mini{
+    position:absolute; top:3px; right:3px;
+    width:24px; height:24px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    background:var(--pop-red);
+    color:#fff;
+    font-size:16px;
+    font-weight:900;
+    line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    padding:0;
+  }
+
+  .add-tile{
+    flex-shrink:0;
+    border:3px dashed #55555f;
+    border-radius:8px;
+    padding:10px 4px;
+    text-align:center;
+    color:#c7c7cf;
+    font-weight:700;
+    font-size:12px;
+    line-height:1.4;
+    cursor:pointer;
+  }
+  .add-tile:active{background:rgba(255,255,255,.04);}
+
+  .btn-view{
+    flex-shrink:0;
+    width:100%;
+    margin-top:2px;
+    padding:12px 4px;
+    font-size:13px;
+    line-height:1.3;
+  }
+
+  /* 드래그 중인 고스트 */
+  .drag-ghost{
+    position:fixed;
+    pointer-events:none;
+    z-index:999;
+    opacity:.92;
+    box-shadow:0 8px 18px rgba(0,0,0,.5);
+    border-radius:8px;
+    transform:scale(1.03);
+  }
+  .drag-placeholder{
+    opacity:.25;
+  }
+
+  /* ---------- VIEWER SCREEN ---------- */
+  #screen-viewer{
+    background:#fff;
+    position:relative;
+  }
+  .viewer-scroll{
+    flex:1;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    background:#fff;
+  }
+  .viewer-scroll img{
+    display:block;
+    width:100%;
+    max-width:700px;
+    margin:0 auto;
+    aspect-ratio:800/1280;
+    object-fit:cover;
+  }
+  .viewer-bar{
+    position:sticky;
+    top:0; left:0; right:0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 14px;
+    padding-top:calc(10px + env(safe-area-inset-top));
+    background:linear-gradient(rgba(0,0,0,.65), transparent);
+    z-index:5;
+  }
+  .viewer-bar .vt{color:#fff; font-family:'Jua', sans-serif; font-size:15px;}
+  .viewer-actions{display:flex; gap:8px;}
+  .viewer-back{
+    border:none;
+    background:rgba(255,255,255,.15);
+    color:#fff;
+    padding:8px 14px;
+    border-radius:20px;
+    font-family:'Noto Sans KR',sans-serif;
+    font-weight:700;
+    font-size:13px;
+  }
+  .viewer-submit{
+    border:none;
+    background:var(--pop-red);
+    color:#fff;
+    padding:8px 14px;
+    border-radius:20px;
+    font-family:'Noto Sans KR',sans-serif;
+    font-weight:700;
+    font-size:13px;
+  }
+  .toast{
+    position:fixed;
+    left:50%; bottom:30px;
+    transform:translate(-50%,10px);
+    background:var(--ink);
+    color:#fff;
+    padding:12px 20px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:700;
+    max-width:86%;
+    text-align:center;
+    z-index:50;
+    opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,0);}
+  .viewer-end{
+    color:#8b8b95;
+    text-align:center;
+    padding:36px 20px 60px;
+    font-size:13px;
+    font-weight:500;
+  }
+
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ 시작 화면 ============ -->
+<section id="screen-start" class="screen active">
+  <div class="halftone"></div>
+  <div class="start-card">
+    <div class="start-badge">WEBTOON CLASS</div>
+    <h1 class="start-title display">웹툰 만들기<br>클래스</h1>
+    <p class="start-sub">내 이름과 반을 선택하고<br>웹툰 그리기를 시작해요</p>
+
+    <div class="field">
+      <label for="in-school">학교</label>
+      <select id="in-school">
+        <option value="">학교 선택</option>
+        <option value="신도림초">신도림초</option>
+        <option value="등현초">등현초</option>
+        <option value="신남초">신남초</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="in-class">반</label>
+      <select id="in-class">
+        <option value="">반 선택</option>
+        <option value="A">A반</option>
+        <option value="B">B반</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="in-name">이름</label>
+      <input id="in-name" type="text" maxlength="10" placeholder="이름을 입력하세요" autocomplete="off">
+    </div>
+
+    <button id="btn-start" class="btn btn-primary display">수업 시작하기</button>
+    <div id="start-error" class="hint-error">학교, 반, 이름을 모두 입력해주세요!</div>
+  </div>
+</section>
+
+<!-- ============ 업로드 화면 ============ -->
+<section id="screen-upload" class="screen">
+  <div class="upload-header">
+    <div class="title display">웹툰 페이지 올리기</div>
+    <div class="who" id="upload-who"></div>
+  </div>
+  <div class="footer-hint">가로 800 × 세로 1280 · 최대 5장 · 썸네일을 눌러 드래그하면 순서를 바꿀 수 있어요</div>
+
+  <div class="upload-body">
+    <div class="preview-pane">
+      <div class="pane-label">미리보기</div>
+      <div class="preview-scroll" id="preview-scroll">
+        <div class="preview-empty" id="preview-empty">오른쪽에서<br>➕ 를 눌러<br>페이지를 추가해보세요</div>
+      </div>
+    </div>
+
+    <div class="slot-pane" id="slot-pane"></div>
+  </div>
+
+  <input type="file" id="file-input" accept="image/*">
+</section>
+
+<!-- ============ 완결 확인 모달 ============ -->
+<div class="ending-modal" id="ending-modal">
+  <div class="ending-modal-card">
+    <p class="ending-modal-q">완결인가요?</p>
+    <div class="ending-modal-btns">
+      <button class="btn btn-no display" id="ending-no">아니오</button>
+      <button class="btn btn-yes display" id="ending-yes">예</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 뷰어 화면 ============ -->
+<section id="screen-viewer" class="screen">
+  <div class="viewer-bar" id="viewer-bar">
+    <span class="vt display">MY WEBTOON</span>
+    <div class="viewer-actions">
+      <button class="viewer-back" id="btn-back-to-edit">편집으로</button>
+      <button class="viewer-submit" id="btn-submit">제출하기</button>
+    </div>
+  </div>
+  <div class="viewer-scroll" id="viewer-scroll"></div>
+</section>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---- Cloudinary 설정 ----
+  var CLOUD_NAME = 'qmbonapf';
+  var UPLOAD_PRESET = 'webtoon';
+  var EXPECT_W = 800, EXPECT_H = 1280;
+  var MAX_PAGES = 5;
+
+  var state = {
+    school:'', className:'', studentName:'',
+    endingType: '완결',
+    pages: [] // {id, file, localUrl, status, cloudUrl, warn}
+  };
+
+  var dragCtx = null; // 드래그 진행 상태
+  var pendingSlotRender = false; // 드래그 중 들어온 렌더 요청을 미뤄둠
+
+  function $(id){ return document.getElementById(id); }
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    $(id).classList.add('active');
+  }
+  function sanitize(str){
+    return (str||'').toString().trim().replace(/[^a-zA-Z0-9가-힣]/g,'_').slice(0,20) || 'unknown';
+  }
+  function makeId(){ return 'p' + Date.now() + Math.floor(Math.random()*1000); }
+
+  // 드래그 도중에는 리스트를 다시 그리지 않고(캡처된 포인터가 끊겨 유령 썸네일이 남는 문제 방지),
+  // 드래그가 끝난 뒤에 한 번에 반영한다.
+  function requestSlotRender(){
+    if(dragCtx){ pendingSlotRender = true; return; }
+    renderSlotPane();
+  }
+
+  // ---------- 엔딩 표시 선택 (완결 확인 모달) ----------
+  function askEndingType(onChoose){
+    var modal = $('ending-modal');
+    var yesBtn = $('ending-yes');
+    var noBtn = $('ending-no');
+
+    function cleanup(){
+      modal.classList.remove('show');
+      yesBtn.removeEventListener('click', onYes);
+      noBtn.removeEventListener('click', onNo);
+    }
+    function onYes(){ cleanup(); onChoose('완결'); }
+    function onNo(){ cleanup(); onChoose('다음화에 계속'); }
+
+    yesBtn.addEventListener('click', onYes);
+    noBtn.addEventListener('click', onNo);
+    modal.classList.add('show');
+  }
+
+  // ---------- 시작 화면 ----------
+  $('btn-start').addEventListener('click', function(){
+    var school = $('in-school').value;
+    var cls = $('in-class').value;
+    var name = $('in-name').value.trim();
+    if(!school || !cls || !name){
+      $('start-error').style.display = 'block';
+      return;
+    }
+    $('start-error').style.display = 'none';
+    state.school = school; state.className = cls; state.studentName = name;
+    $('upload-who').textContent = school + ' ' + cls + '반 · ' + name;
+    renderSlotPane();
+    renderPreview();
+    showScreen('screen-upload');
+  });
+
+  // ---------- 오른쪽 슬롯(메뉴) 렌더 ----------
+  function renderSlotPane(){
+    var pane = $('slot-pane');
+    pane.innerHTML = '';
+
+    state.pages.forEach(function(page){
+      var item = document.createElement('div');
+      item.className = 'page-item';
+      item.setAttribute('data-id', page.id);
+
+      var thumb = document.createElement('div');
+      thumb.className = 'page-thumb';
+
+      var img = document.createElement('img');
+      img.src = page.localUrl;
+      img.draggable = false;
+      thumb.appendChild(img);
+
+      if(page.status === 'uploading'){
+        var b1 = document.createElement('div');
+        b1.className = 'badge uploading';
+        b1.textContent = '↻';
+        thumb.appendChild(b1);
+      } else if(page.status === 'error'){
+        var b2 = document.createElement('div');
+        b2.className = 'badge error';
+        b2.textContent = '!';
+        thumb.appendChild(b2);
+      } else if(page.warn){
+        var b3 = document.createElement('div');
+        b3.className = 'badge warn';
+        b3.textContent = '⚠';
+        thumb.appendChild(b3);
+      }
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'del-btn-mini';
+      delBtn.textContent = '−';
+      delBtn.setAttribute('aria-label', '삭제');
+      delBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        removePage(page.id);
+      });
+      thumb.appendChild(delBtn);
+
+      attachDrag(thumb, page.id);
+
+      item.appendChild(thumb);
+      pane.appendChild(item);
+    });
+
+    // 추가 타일
+    if(state.pages.length < MAX_PAGES){
+      var addTile = document.createElement('div');
+      addTile.className = 'add-tile';
+      addTile.innerHTML = '+ 추가<br>(' + state.pages.length + '/' + MAX_PAGES + ')';
+      addTile.addEventListener('click', function(){ openPicker(); });
+      pane.appendChild(addTile);
+    }
+
+    // 웹툰으로 보기 버튼
+    var viewBtn = document.createElement('button');
+    viewBtn.className = 'btn btn-primary display btn-view';
+    viewBtn.textContent = '웹툰으로 보기';
+    viewBtn.disabled = state.pages.length === 0;
+    viewBtn.addEventListener('click', function(){
+      askEndingType(function(choice){
+        state.endingType = choice;
+        buildViewer();
+        showScreen('screen-viewer');
+        $('viewer-scroll').scrollTop = 0;
+      });
+    });
+    pane.appendChild(viewBtn);
+  }
+
+  // ---------- 왼쪽 미리보기 렌더 ----------
+  function renderPreview(){
+    var scroll = $('preview-scroll');
+    if(state.pages.length === 0){
+      scroll.innerHTML = '<div class="preview-empty" id="preview-empty">오른쪽에서<br>➕ 를 눌러<br>페이지를 추가해보세요</div>';
+      return;
+    }
+    scroll.innerHTML = '';
+    state.pages.forEach(function(p){
+      var img = document.createElement('img');
+      img.className = 'preview-page';
+      img.src = p.localUrl;
+      scroll.appendChild(img);
+    });
+  }
+
+  // ---------- 드래그로 순서 이동 (포토샵 레이어 패널 방식) ----------
+  function attachDrag(handleEl, pageId){
+    handleEl.addEventListener('pointerdown', function(e){
+      if(e.target.closest('.del-btn-mini')) return;
+      if(dragCtx) return; // 이미 다른 페이지를 드래그 중이면 무시 (다중 터치 보호)
+      e.preventDefault();
+
+      var rowEl = handleEl.closest('.page-item');
+      var rect = rowEl.getBoundingClientRect();
+
+      var ghost = rowEl.cloneNode(true);
+      ghost.classList.add('drag-ghost');
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      document.body.appendChild(ghost);
+
+      rowEl.classList.add('drag-placeholder');
+
+      dragCtx = {
+        pageId: pageId,
+        ghost: ghost,
+        rowEl: rowEl,
+        offsetY: e.clientY - rect.top,
+        pointerId: e.pointerId
+      };
+
+      handleEl.setPointerCapture(e.pointerId);
+    });
+
+    handleEl.addEventListener('pointermove', function(e){
+      if(!dragCtx || dragCtx.pointerId !== e.pointerId) return;
+
+      dragCtx.ghost.style.top = (e.clientY - dragCtx.offsetY) + 'px';
+
+      var pane = $('slot-pane');
+      var rows = Array.prototype.slice.call(pane.querySelectorAll('.page-item'));
+      var curIndex = state.pages.findIndex(function(p){ return p.id === dragCtx.pageId; });
+
+      for(var k = 0; k < rows.length; k++){
+        var rowNode = rows[k];
+        if(rowNode === dragCtx.rowEl) continue;
+        var targetId = rowNode.getAttribute('data-id');
+        var targetIndex = state.pages.findIndex(function(p){ return p.id === targetId; });
+        var r = rowNode.getBoundingClientRect();
+        var midY = r.top + r.height / 2;
+
+        if(e.clientY < midY && targetIndex < curIndex){
+          pane.insertBefore(dragCtx.rowEl, rowNode);
+          movePageTo(curIndex, targetIndex);
+          break;
+        } else if(e.clientY > midY && targetIndex > curIndex){
+          pane.insertBefore(dragCtx.rowEl, rowNode.nextSibling);
+          movePageTo(curIndex, targetIndex);
+          break;
+        }
+      }
+    });
+
+    handleEl.addEventListener('pointerup', endDrag);
+    handleEl.addEventListener('pointercancel', endDrag);
+
+    function endDrag(e){
+      if(!dragCtx || dragCtx.pointerId !== e.pointerId) return;
+      dragCtx.ghost.remove();
+      dragCtx = null;
+      pendingSlotRender = false;
+      renderSlotPane();
+    }
+  }
+
+  function movePageTo(fromIndex, toIndex){
+    var item = state.pages.splice(fromIndex, 1)[0];
+    state.pages.splice(toIndex, 0, item);
+    renderPreview();
+  }
+
+  function removePage(id){
+    var idx = state.pages.findIndex(function(p){ return p.id === id; });
+    if(idx === -1) return;
+    var page = state.pages[idx];
+    if(page.localUrl) URL.revokeObjectURL(page.localUrl);
+    state.pages.splice(idx, 1);
+    requestSlotRender();
+    renderPreview();
+  }
+
+  // ---------- 파일 선택 ----------
+  var fileInput = $('file-input');
+  function openPicker(){
+    fileInput.value = '';
+    fileInput.click();
+  }
+  fileInput.addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    handleFileSelected(file);
+  });
+
+  function handleFileSelected(file){
+    if(state.pages.length >= MAX_PAGES) return;
+    var localUrl = URL.createObjectURL(file);
+    var page = { id: makeId(), file: file, localUrl: localUrl, status: 'uploading', cloudUrl: null, warn: false };
+    state.pages.push(page);
+    renderSlotPane();
+    renderPreview();
+
+    var checkImg = new Image();
+    checkImg.onload = function(){
+      if(checkImg.naturalWidth !== EXPECT_W || checkImg.naturalHeight !== EXPECT_H){
+        page.warn = true;
+        requestSlotRender();
+      }
+    };
+    checkImg.src = localUrl;
+
+    uploadToCloudinary(page);
+  }
+
+  // ---------- Cloudinary 업로드 ----------
+  function uploadToCloudinary(page){
+    page.status = 'uploading';
+    requestSlotRender();
+
+    var publicId = 'webtoon_' + sanitize(state.className) + '_' + sanitize(state.studentName) +
+      '_' + page.id;
+    var formData = new FormData();
+    formData.append('file', page.file);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    formData.append('public_id', publicId);
+
+    fetch('https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/image/upload', {
+      method: 'POST',
+      body: formData
+    }).then(function(res){
+      if(!res.ok) throw new Error('upload failed');
+      return res.json();
+    }).then(function(data){
+      page.status = 'done';
+      page.cloudUrl = data.secure_url;
+      requestSlotRender();
+    }).catch(function(){
+      page.status = 'error';
+      requestSlotRender();
+    });
+  }
+
+  // ---------- 뷰어 ----------
+  function buildViewer(){
+    var wrap = $('viewer-scroll');
+    wrap.innerHTML = '';
+    state.pages.forEach(function(p){
+      var img = document.createElement('img');
+      img.src = p.localUrl;
+      img.alt = '웹툰 페이지';
+      wrap.appendChild(img);
+    });
+    var endMsg = document.createElement('div');
+    endMsg.className = 'viewer-end';
+    endMsg.textContent = '- ' + state.endingType + ' -';
+    wrap.appendChild(endMsg);
+  }
+
+  $('btn-back-to-edit').addEventListener('click', function(){
+    showScreen('screen-upload');
+  });
+
+  // ---------- 제출하기 ----------
+  function showToast(msg){
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    requestAnimationFrame(function(){ t.classList.add('show'); });
+    setTimeout(function(){
+      t.classList.remove('show');
+      setTimeout(function(){ t.remove(); }, 300);
+    }, 2200);
+  }
+
+  $('btn-submit').addEventListener('click', function(){
+    var uploading = state.pages.some(function(p){ return p.status === 'uploading'; });
+    var errors = state.pages.filter(function(p){ return p.status === 'error'; });
+
+    if(uploading){
+      showToast('아직 저장 중이에요. 잠시만 기다려주세요');
+      return;
+    }
+    if(errors.length > 0){
+      showToast('저장에 실패한 페이지가 있어 다시 시도할게요');
+      errors.forEach(function(p){ uploadToCloudinary(p); });
+      return;
+    }
+    showToast('제출 완료! 선생님께 잘 전달됐어요 🎉');
+  });
+
+})();
+</script>
+</body>
+</html>

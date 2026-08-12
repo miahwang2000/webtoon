@@ -1,0 +1,483 @@
+/* Variables */
+:root {
+  --primary: #4472C4;
+  --accent: #ff5a5f;
+  --text: #333;
+  --bg: #f5f5f5;
+  --border: #ddd;
+  --font-display: "Gaegu", cursive;
+  --font-body: "Noto Sans KR", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.app-header h1 {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  margin: 0 0 20px 0;
+  color: var(--primary);
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.progress-step {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--border);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.progress-step.active {
+  background: var(--primary);
+  box-shadow: 0 4px 12px rgba(68, 114, 196, 0.3);
+}
+
+.progress-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+}
+
+/* Step Layout */
+.step {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step h2 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  margin-bottom: 30px;
+  color: var(--text);
+}
+
+/* Step 1: Character Type Selection */
+.type-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border: 3px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-card img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.type-card span {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.type-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary);
+}
+
+.type-card.selected {
+  border-color: var(--accent);
+  background: rgba(255, 90, 95, 0.05);
+  box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.2);
+}
+
+/* Step 2: Two-column Layout */
+.step2-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.step2-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step2-preview h2 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.preview-box {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-box img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.step2-form h2 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+/* Step 3: Sheet Preview */
+.preview-sheet {
+  width: 100%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+}
+
+.preview-sheet canvas {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  aspect-ratio: 800 / 1280;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.input-group input,
+.input-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  transition: border-color 0.2s ease;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(68, 114, 196, 0.1);
+}
+
+.input-group input::placeholder {
+  color: #999;
+}
+
+/* Buttons */
+.step-buttons {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+  justify-content: flex-end;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 12px 30px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  flex: 1;
+  max-width: 200px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #3860a8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(68, 114, 196, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--border);
+  color: var(--text);
+  flex: 1;
+  max-width: 200px;
+}
+
+.btn-secondary:hover {
+  background: #bbb;
+  transform: translateY(-2px);
+}
+
+#downloadBtn {
+  max-width: 100%;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px;
+    border-radius: 12px;
+  }
+
+  .app-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .progress-bar {
+    max-width: none;
+    gap: 10px;
+  }
+
+  .progress-step {
+    width: 35px;
+    height: 35px;
+    font-size: 0.95rem;
+  }
+
+  .type-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .type-card {
+    padding: 15px;
+  }
+
+  .type-card img {
+    width: 90px;
+    height: 90px;
+    margin-bottom: 8px;
+  }
+
+  .type-card span {
+    font-size: 1rem;
+  }
+
+  /* Step 2 mobile */
+  .step2-container {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .step2-preview {
+    order: -1;
+  }
+
+  .step2-preview h2,
+  .step2-form h2 {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+  }
+
+  .preview-box {
+    max-width: 100%;
+    aspect-ratio: 1;
+  }
+
+  .preview-box img {
+    max-width: 90%;
+    max-height: 90%;
+  }
+
+  .input-group {
+    margin-bottom: 15px;
+  }
+
+  .input-group label {
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+
+  .input-group input,
+  .input-group select {
+    padding: 10px;
+    font-size: 16px;
+  }
+
+  /* Step 3 mobile */
+  .preview-sheet {
+    padding: 10px;
+    margin-bottom: 20px;
+  }
+
+  .preview-sheet canvas {
+    max-width: 100%;
+    max-height: 80vh;
+    width: auto;
+    height: auto;
+    display: block;
+  }
+
+  /* Buttons */
+  .step-buttons {
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    max-width: none;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+  .container {
+    padding: 15px;
+    border-radius: 8px;
+  }
+
+  .app-header h1 {
+    font-size: 1.4rem;
+    margin-bottom: 15px;
+  }
+
+  .progress-bar {
+    gap: 8px;
+  }
+
+  .progress-step {
+    width: 30px;
+    height: 30px;
+    font-size: 0.85rem;
+  }
+
+  .progress-line {
+    flex: 1;
+    height: 1px;
+  }
+
+  .type-cards {
+    gap: 15px;
+  }
+
+  .type-card {
+    padding: 12px;
+  }
+
+  .type-card img {
+    width: 80px;
+    height: 80px;
+  }
+
+  .step2-preview h2,
+  .step2-form h2 {
+    font-size: 1.1rem;
+  }
+
+  .preview-box {
+    aspect-ratio: 1;
+  }
+
+  .input-group {
+    margin-bottom: 12px;
+  }
+
+  .input-group label {
+    font-size: 0.9rem;
+  }
+
+  .step h2 {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+  }
+
+  .preview-sheet canvas {
+    max-height: 60vh;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+}

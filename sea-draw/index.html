@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>바다생물 그리기 클래스</title>
+<title>캐릭터 만들기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Jua&display=swap" rel="stylesheet">
@@ -75,6 +75,97 @@
       linear-gradient(180deg, var(--sea-light) 0%, var(--sea-mid) 55%, var(--sea-deep) 100%);
     padding:24px;
   }
+  #screen-ramen-select, #screen-ramen-frames, #screen-ramen-combine{
+    align-items:center; justify-content:center;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(255,255,255,0.5), transparent 40%),
+      linear-gradient(180deg, #ffcf8a 0%, #ff9d5c 55%, #e8623f 100%);
+    padding:24px;
+  }
+  .ramen-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .ramen-card{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    border-radius:16px; border:3px solid #e0d3b8; background:#fff; padding:8px 6px; cursor:pointer;
+    overflow:hidden;
+  }
+  .ramen-card img{ width:100%; aspect-ratio:1/1; object-fit:contain; border-radius:10px; }
+  .ramen-card span:last-child{ font-size:13px; font-weight:700; color:var(--sea-deep); text-align:center; line-height:1.2; }
+  .ramen-card.selected{ border-color:var(--coral); background:#fff1ea; }
+
+  /* 라면 만들기: 토핑 프레임 고르기 */
+  .ramen-frame-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  .ramen-frame-slot{
+    position:relative; aspect-ratio:1/1; border-radius:16px; border:3px dashed #e0d3b8;
+    background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    overflow:hidden;
+  }
+  .ramen-frame-slot.filled{ border-style:solid; border-color:var(--coral); }
+  .ramen-frame-slot img{ width:64%; height:64%; object-fit:contain; }
+  .ramen-frame-slot .slot-label{ position:absolute; bottom:6px; font-size:12px; font-weight:700; color:var(--sea-deep); }
+  .ramen-frame-slot .plus{ font-size:40px; color:#d8c4a4; line-height:1; }
+
+  .ramen-topping-popover{
+    position:absolute; inset:0; background:rgba(15,40,55,0.55); border-radius:28px;
+    display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .ramen-topping-popover.show{ display:flex; }
+  .ramen-topping-popover-card{ background:#fff; border-radius:20px; padding:18px; max-width:340px; width:100%; }
+  .ramen-topping-option-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+  .ramen-topping-option{
+    display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px;
+    border-radius:12px; border:2px solid #eef4f7; cursor:pointer; background:#fff;
+  }
+  .ramen-topping-option img{ width:44px; height:44px; object-fit:contain; }
+  .ramen-topping-option span{ font-size:11px; font-weight:700; color:var(--sea-deep); text-align:center; line-height:1.2; }
+  .ramen-topping-option.clear{ color:var(--coral-dark); justify-content:center; }
+
+  .ramen-combine-frame{ width:100%; aspect-ratio:1/1; margin:14px 0; border-radius:16px; overflow:hidden; background:#fff; box-shadow:0 8px 20px rgba(0,0,0,0.15); }
+
+  /* 5단계: 토핑 받기 미니게임 */
+  #screen-ramen-game{ background: linear-gradient(180deg, #bfe6ff 0%, #eaf9ff 55%, #fff6e6 100%); overflow:hidden; }
+  .ramen-game-field{ flex:1; position:relative; overflow:hidden; }
+  .ramen-game-bowl-wrap{
+    position:absolute; bottom:6px; left:50%; width:20%; max-width:160px;
+    transform:translateX(-50%);
+  }
+  .ramen-game-bowl{ width:100%; height:auto; display:block; filter:drop-shadow(0 6px 8px rgba(0,0,0,0.25)); }
+  .ramen-game-bowl-toppings{
+    position:absolute; top:-22%; left:50%; transform:translateX(-50%);
+    width:180%; display:flex; align-items:center; justify-content:center;
+    flex-wrap:wrap; gap:4px; pointer-events:none;
+  }
+  .ramen-bowl-topping-item{ position:relative; display:inline-block; }
+  .ramen-bowl-topping-item img{ width:22px; height:22px; object-fit:contain; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.25)); display:block; }
+  .ramen-bowl-topping-count{
+    position:absolute; bottom:-5px; right:-7px; background:var(--coral); color:#fff;
+    font-family:'Jua',sans-serif; font-size:10px; font-weight:700; border-radius:8px;
+    padding:1px 4px; line-height:1.3; box-shadow:0 1px 2px rgba(0,0,0,0.3); white-space:nowrap;
+  }
+  .ramen-score-popup{
+    position:absolute; top:-10%; left:50%; transform:translateX(-50%);
+    font-family:'Jua',sans-serif; font-size:24px; font-weight:700;
+    color:#3bb273; text-shadow:0 2px 3px rgba(255,255,255,0.6), 0 1px 1px rgba(0,0,0,0.15);
+    animation:ramen-score-float .7s ease-out forwards;
+    pointer-events:none; white-space:nowrap; z-index:5;
+  }
+  .ramen-score-popup.negative{ color:var(--coral-dark); }
+  @keyframes ramen-score-float{
+    0%{ opacity:0; transform:translateX(-50%) translateY(0) scale(0.8); }
+    20%{ opacity:1; transform:translateX(-50%) translateY(-10px) scale(1.15); }
+    100%{ opacity:0; transform:translateX(-50%) translateY(-55px) scale(1); }
+  }
+  .ramen-falling-item{
+    position:absolute; width:64px; height:64px; margin-left:-32px;
+    display:flex; align-items:center; justify-content:center; font-size:40px;
+    pointer-events:none;
+  }
+  .ramen-falling-item img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 3px 4px rgba(0,0,0,0.2)); }
+  .ramen-falling-item.caught{ animation:ramen-catch-pop .22s ease-out forwards; }
+  .ramen-falling-item.caught.wrong{ animation:ramen-catch-wrong .22s ease-out forwards; }
+  @keyframes ramen-catch-pop{ to{ transform:scale(1.5); opacity:0; } }
+  @keyframes ramen-catch-wrong{ to{ transform:scale(0.5) rotate(15deg); opacity:0; } }
+  #ramenCombineCanvas{ width:100%; height:100%; display:block; }
+
   .entry-card{
     width:100%; max-width:520px; background:var(--sand);
     border-radius:28px; padding:32px 28px; box-shadow:0 14px 0 rgba(15,94,140,0.3);
@@ -164,7 +255,7 @@
   #canvasStage canvas, #canvasStage img.guideImg{
     position:absolute; inset:0; width:100%; height:100%;
   }
-  #guideImg{ opacity:0.32; pointer-events:none; z-index:2; }
+  #guideImg{ opacity:0.26; pointer-events:none; z-index:2; }
   #drawCanvas{ touch-action:none; z-index:1; }
   #fillCanvas{ z-index:1; touch-action:none; }
   #lineArtCanvas{ z-index:2; pointer-events:none; }
@@ -201,6 +292,9 @@
 
   .palette-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
   #fillColorPopover{ min-width:220px; }
+  .fill-tolerance-control{ margin-top:12px; padding-top:10px; border-top:1px solid #eef4f7; }
+  .fill-tolerance-control label{ font-size:13px; font-weight:700; color:var(--sea-deep); display:block; margin-bottom:4px; }
+  .fill-tolerance-control input[type="range"]{ width:100%; }
   .swatch{
     width:100%; aspect-ratio:1/1; border-radius:50%; border:3px solid #fff;
     box-shadow:0 0 0 2px #e2eef3; cursor:pointer;
@@ -344,9 +438,14 @@
   .game-overlay{
     position:absolute; inset:0; background:rgba(15,40,55,0.6);
     display:flex; align-items:center; justify-content:center; padding:24px; z-index:5;
+    overflow-y:auto; /* 화면 세로 공간이 좁아도 스크롤로 결과창 전체를 볼 수 있도록 */
   }
   .game-overlay.hidden{ display:none; }
-  .game-overlay-card{ background:#fff; border-radius:26px; padding:32px 26px; max-width:360px; text-align:center; box-shadow:0 14px 0 rgba(15,94,140,0.3); }
+  .game-overlay-card{
+    background:#fff; border-radius:26px; padding:32px 26px; max-width:360px; text-align:center;
+    box-shadow:0 14px 0 rgba(15,94,140,0.3);
+    max-height:100%; overflow-y:auto; margin:auto; /* 카드 자체가 화면보다 커도 잘리지 않고 스크롤됨 */
+  }
   .game-overlay-title{ font-family:'Jua',sans-serif; font-size:26px; color:var(--sea-deep); margin:0 0 10px; }
   .game-overlay-desc{ color:#6b8ea3; font-size:18px; margin:0 0 4px; }
 
@@ -372,7 +471,7 @@
   <!-- 1. 입장 화면 -->
   <section id="screen-entry" class="screen active">
     <div class="entry-card">
-      <p class="entry-title">🐧 바다생물 그리기 클래스</p>
+      <p class="entry-title">🎨 캐릭터 만들기</p>
       <p class="entry-sub">이름과 반, 주제를 선택하고 시작해요</p>
 
       <div class="field-label">이름</div>
@@ -394,6 +493,7 @@
       <div class="field-label">오늘의 주제</div>
       <select id="themeSelect" class="pill-select">
         <option value="sea">🌊 바다생물 그리기</option>
+        <option value="ramen">🍜 라면 만들기</option>
         <option value="misc">🎨 여러가지 그리기</option>
       </select>
 
@@ -412,6 +512,72 @@
       <div id="quizBody"></div>
 
       <div class="done-actions" id="quizActions" style="margin-top:22px;"></div>
+    </div>
+  </section>
+
+  <!-- 1-c. 라면 만들기: 1단계 라면 고르기 -->
+  <section id="screen-ramen-select" class="screen">
+    <div class="entry-card" style="max-width:560px;">
+      <p class="entry-title">🍜 어떤 라면을 좋아하나요?</p>
+      <p class="entry-sub">좋아하는 라면을 하나 골라주세요</p>
+      <div class="ramen-grid" id="ramenGrid"></div>
+      <button class="btn ghost full" id="ramenBackBtn" style="margin-top:18px;">처음으로</button>
+    </div>
+  </section>
+
+  <!-- 라면 만들기: 2단계 토핑 프레임 고르기 -->
+  <section id="screen-ramen-frames" class="screen">
+    <div class="entry-card" style="max-width:480px; position:relative;">
+      <p class="entry-title">🍜 토핑을 골라 그려요</p>
+      <p class="entry-sub">빈 칸을 눌러 넣고 싶은 토핑을 골라주세요</p>
+      <div class="ramen-frame-grid" id="ramenFrameGrid"></div>
+      <button class="btn coral full" id="ramenFramesNextBtn" style="margin-top:18px;">그리기 시작</button>
+      <button class="btn ghost full" id="ramenFramesBackBtn" style="margin-top:10px;">라면 다시 고르기</button>
+
+      <div class="ramen-topping-popover" id="ramenToppingPickerOverlay">
+        <div class="ramen-topping-popover-card">
+          <p class="entry-title" style="font-size:20px;">어떤 토핑을 넣을까요?</p>
+          <div class="ramen-topping-option-grid" id="ramenToppingOptionGrid"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 라면 만들기: 4단계 합치기 & 제출 -->
+  <section id="screen-ramen-combine" class="screen">
+    <div class="entry-card" style="max-width:480px; text-align:center;">
+      <p class="entry-title">🍜 라면 완성!</p>
+      <div class="ramen-combine-frame">
+        <canvas id="ramenCombineCanvas"></canvas>
+      </div>
+      <div class="done-actions">
+        <button class="btn ghost full" id="ramenRedoBtn">다시 만들기</button>
+        <button class="btn ghost full" id="ramenGameEntryBtn">🎮 토핑 받기 게임</button>
+        <button class="btn coral full" id="ramenSubmitBtn">제출하기</button>
+      </div>
+      <p id="ramenSubmitStatus" style="color:#6b8ea3; margin-top:10px;"></p>
+    </div>
+  </section>
+
+  <!-- 5단계: 미니게임 - 토핑 받기 -->
+  <section id="screen-ramen-game" class="screen">
+    <div class="game-topbar">
+      <div class="game-stat">🏆 <span id="ramenGameScore">0</span>점</div>
+      <div class="game-stat">⏱ <span id="ramenGameTimer">30</span>초</div>
+      <div class="game-stat">🔁 남은 기회 <span id="ramenGameCredits">2</span></div>
+    </div>
+    <div class="ramen-game-field" id="ramenGameField">
+      <div class="ramen-game-bowl-wrap" id="ramenGameBowlWrap">
+        <img id="ramenGameBowl" class="ramen-game-bowl" alt="">
+        <div class="ramen-game-bowl-toppings" id="ramenGameBowlToppings"></div>
+      </div>
+    </div>
+    <div class="game-overlay" id="ramenGameOverlay">
+      <div class="game-overlay-card">
+        <p class="game-overlay-title" id="ramenGameOverlayTitle">토핑 받기</p>
+        <p class="game-overlay-desc" id="ramenGameOverlayDesc">화면을 눌러 시작해요!</p>
+        <div class="done-actions" id="ramenGameOverlayActions"></div>
+      </div>
     </div>
   </section>
 
@@ -454,6 +620,10 @@
           <button class="icon-btn on" id="fillToolBtn" title="채우기 (색 고르기)"><img src="assets/ui/fill.png" alt="채우기" class="icon-img"></button>
           <div class="icon-popover" id="fillColorPopover">
             <div class="palette-grid" id="paletteGrid"></div>
+            <div class="fill-tolerance-control">
+              <label>오차 <span id="fillToleranceValue">0</span></label>
+              <input type="range" id="fillToleranceSlider" min="0" max="8" step="1" value="0">
+            </div>
           </div>
         </div>
         <button class="icon-btn" id="penToolBtn" title="그리기 (검정선 고정)">✏️</button>

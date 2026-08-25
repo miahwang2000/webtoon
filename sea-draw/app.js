@@ -106,6 +106,13 @@
       { type: 'mc', q: '물고기가 헤엄칠 때 가장 많이 쓰는 몸의 부분은 무엇일까요?', options: ['지느러미', '손', '날개', '부리'], answerIndex: 0 },
       { type: 'ox', q: '펭귄은 하늘을 날 수 있는 새예요.', answer: false }
     ],
+    ramen: [
+      { type: 'ox', q: '라면 면은 밀가루로 만들어요.', answer: true },
+      { type: 'mc', q: '다음 중 라면 토핑이 아닌 것은 무엇일까요?', options: ['삶은 계란', '대파', '양말', '단무지'], answerIndex: 2 },
+      { type: 'ox', q: '라면은 끓는 물 없이도 바로 익힐 수 있어요.', answer: false },
+      { type: 'mc', q: '라면을 끓일 때 가장 먼저 필요한 것은 무엇일까요?', options: ['물', '얼음', '우유', '주스'], answerIndex: 0 },
+      { type: 'ox', q: '김치는 배추로 만드는 음식이에요.', answer: true }
+    ],
     misc: []
   };
 
@@ -115,6 +122,12 @@
     school: '',
     classCode: '',
     theme: 'sea',
+    ramen: null,       // 라면 만들기: 선택한 라면 {id, name}
+    ramenStage: null,  // null | 'topping' | 'bowl'
+    ramenToppingSlots: [], // 2단계 프레임에 배정된 토핑들
+    ramenToppingResults: [], // 슬롯별로 완성된 토핑 이미지 (배경 투명)
+    ramenCurrentSlotIndex: 0, // 지금 그리고 있는 토핑의 슬롯 번호
+    ramenBowlImage: null,    // 3단계 완성본 (배경 투명, 제출/합치기/게임 공용)
     character: null,
     stepIndex: 0,
     stepStrokeStart: [0], // 각 단계가 시작될 때 strokes.length가 몇이었는지 기록 (되돌리기가 이전 단계로 넘어가야 할 때 사용)
@@ -132,6 +145,7 @@
   let drawingEnabled = false;
   let eraserOn = false;
   let colorTool = 'fill'; // 'fill' | 'pen'
+  let fillTolerance = 0; // 채우기 오차: 클수록 선을 살짝 넘어가며 더 넓게 채워짐
   let snapEnabled = true;
   let currentSnapGrid = null;
   const SNAP_CELL = 24;   // 스냅 인덱스 버킷 크기 (캔버스 좌표 기준)
@@ -164,8 +178,12 @@
     state.school = $('schoolSelect').value;
     state.classCode = $('classSelect').value;
 
-    localStorage.setItem('sd_studentName', state.studentName);
-    localStorage.setItem('sd_classFolder', state.school + state.classCode);
+    try {
+      localStorage.setItem('sd_studentName', state.studentName);
+      localStorage.setItem('sd_classFolder', state.school + state.classCode);
+    } catch (err) {
+      console.warn('[sea-draw] localStorage 저장 실패 (무시하고 계속 진행):', err);
+    }
 
     enterWorkspace($('themeSelect').value);
   });
@@ -328,6 +346,12 @@
   /* ============ 2. 작업 화면 진입 (주제 -> 캐릭터) ============ */
   function enterWorkspace(themeKey) {
     state.theme = themeKey;
+
+    if (themeKey === 'ramen') {
+      enterRamenSelect();
+      return;
+    }
+
     const theme = THEMES[themeKey];
     renderPanelCharList(theme.characters);
 
@@ -347,6 +371,550 @@
     showScreen('screen-work');
     requestAnimationFrame(sizeStageToViewport);
   }
+
+  /* ============ 라면 만들기 ============ */
+  const RAMEN_LIST = [
+    { id: 'shin', name: '신라면', photo: 'assets/ramen/photos/shin.jpg' },
+    { id: 'chapagetti', name: '짜파게티', photo: 'assets/ramen/photos/chapagetti.jpg' },
+    { id: 'snackmyun', name: '스낵면', photo: 'assets/ramen/photos/snackmyun.jpg' },
+    { id: 'buldak', name: '불닭볶음면', photo: 'assets/ramen/photos/buldak.jpg' },
+    { id: 'tuigim-udon', name: '튀김우동', photo: 'assets/ramen/photos/tuigim-udon.jpg' },
+    { id: 'chamkke', name: '참깨라면', photo: 'assets/ramen/photos/chamkke.jpg' },
+    { id: 'paldo-bibim', name: '팔도비빔면', photo: 'assets/ramen/photos/paldo-bibim.jpg' },
+    { id: 'neoguri', name: '너구리', photo: 'assets/ramen/photos/neoguri.jpg' },
+    { id: 'anseong', name: '안성탕면', photo: 'assets/ramen/photos/anseong.jpg' },
+    { id: 'jin', name: '진라면', photo: 'assets/ramen/photos/jin.jpg' }
+  ];
+
+  const TOPPING_LIST = [
+    { id: 'mandu', name: '만두', guide: 'assets/ramen/topping-mandu.png' },
+    { id: 'cheese', name: '슬라이스 치즈', guide: 'assets/ramen/topping-cheese.png' },
+    { id: 'tteok', name: '떡', guide: 'assets/ramen/topping-tteok.png' },
+    { id: 'egg', name: '삶은 계란', guide: 'assets/ramen/topping-egg.png' },
+    { id: 'daepa', name: '대파', guide: 'assets/ramen/topping-daepa.png' },
+    { id: 'danmuji', name: '단무지', guide: 'assets/ramen/topping-danmuji.png' },
+    { id: 'bacon', name: '베이컨', guide: 'assets/ramen/topping-bacon.png' },
+    { id: 'kimchi', name: '김치', guide: 'assets/ramen/topping-kimchi.png' }
+  ];
+  const RAMEN_BOWL_GUIDE = 'assets/ramen/bowl.png';
+  const RAMEN_FRAME_COUNT = 4;
+  // 토핑이 그릇 속 면발 위에 자연스럽게 놓이도록, bowl.png에서 눈으로 잡아둔 "그릇 안쪽" 기준 사각형 (0~1 비율)
+  const RAMEN_BOWL_OPENING = { left: 0.08, top: 0.24, right: 0.86, bottom: 0.61 };
+
+  /* ---- 1단계: 라면 고르기 ---- */
+  function enterRamenSelect() {
+    const grid = $('ramenGrid');
+    grid.innerHTML = '';
+    RAMEN_LIST.forEach((ramen) => {
+      const card = document.createElement('div');
+      card.className = 'ramen-card';
+      card.innerHTML = `<img src="${ramen.photo}" alt=""><span>${ramen.name}</span>`;
+      card.addEventListener('click', () => selectRamen(ramen));
+      grid.appendChild(card);
+    });
+    showScreen('screen-ramen-select');
+  }
+
+  function selectRamen(ramen) {
+    state.ramen = ramen;
+    state.ramenToppingSlots = new Array(RAMEN_FRAME_COUNT).fill(null);
+    state.ramenStage = null;
+    enterRamenFrames();
+  }
+
+  $('ramenBackBtn').addEventListener('click', () => showScreen('screen-entry'));
+
+  /* ---- 2단계: 토핑 프레임 고르기 ---- */
+  function enterRamenFrames() {
+    renderRamenFrameGrid();
+    showScreen('screen-ramen-frames');
+  }
+
+  function renderRamenFrameGrid() {
+    const grid = $('ramenFrameGrid');
+    grid.innerHTML = '';
+    state.ramenToppingSlots.forEach((slot, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'ramen-frame-slot' + (slot ? ' filled' : '');
+      cell.innerHTML = slot
+        ? `<img src="${slot.guide}" alt=""><span class="slot-label">${slot.name}</span>`
+        : `<span class="plus">+</span>`;
+      cell.addEventListener('click', () => openToppingPicker(i));
+      grid.appendChild(cell);
+    });
+  }
+
+  function openToppingPicker(slotIndex) {
+    const overlay = $('ramenToppingPickerOverlay');
+    const optGrid = $('ramenToppingOptionGrid');
+    optGrid.innerHTML = '';
+    TOPPING_LIST.forEach((t) => {
+      const opt = document.createElement('div');
+      opt.className = 'ramen-topping-option';
+      opt.innerHTML = `<img src="${t.guide}" alt=""><span>${t.name}</span>`;
+      opt.addEventListener('click', () => {
+        state.ramenToppingSlots[slotIndex] = t;
+        overlay.classList.remove('show');
+        renderRamenFrameGrid();
+      });
+      optGrid.appendChild(opt);
+    });
+    const clearOpt = document.createElement('div');
+    clearOpt.className = 'ramen-topping-option clear';
+    clearOpt.innerHTML = `<span style="font-size:26px;">✕</span><span>비우기</span>`;
+    clearOpt.addEventListener('click', () => {
+      state.ramenToppingSlots[slotIndex] = null;
+      overlay.classList.remove('show');
+      renderRamenFrameGrid();
+    });
+    optGrid.appendChild(clearOpt);
+    overlay.classList.add('show');
+  }
+
+  $('ramenToppingPickerOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'ramenToppingPickerOverlay') e.currentTarget.classList.remove('show');
+  });
+
+  $('ramenFramesBackBtn').addEventListener('click', () => showScreen('screen-ramen-select'));
+
+  $('ramenFramesNextBtn').addEventListener('click', () => {
+    const filledIndexes = state.ramenToppingSlots
+      .map((s, i) => (s ? i : -1))
+      .filter((i) => i !== -1);
+    if (!filledIndexes.length) {
+      ClassroomGuard.showModal('토핑을 하나 이상 골라주세요!', [{ label: '확인', primary: true }]);
+      return;
+    }
+    state.ramenToppingResults = new Array(state.ramenToppingSlots.length).fill(null);
+    startRamenToppingDrawing(filledIndexes[0]);
+  });
+
+  // 토핑 하나를 캔버스 전체에 꽉 채운 가이드로 만듦 (한 번에 하나씩 그리기)
+  function composeSingleToppingGuide(topping) {
+    const off = document.createElement('canvas');
+    off.width = CANVAS_RES; off.height = CANVAS_RES;
+    const ctx = off.getContext('2d');
+    const pad = CANVAS_RES * 0.1;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const avail = CANVAS_RES - pad * 2;
+        const scale = Math.min(avail / img.width, avail / img.height);
+        const dw = img.width * scale, dh = img.height * scale;
+        const dx = (CANVAS_RES - dw) / 2, dy = (CANVAS_RES - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+        resolve(off.toDataURL('image/png'));
+      };
+      img.src = topping.guide;
+    });
+  }
+
+  function ramenFilledIndexes() {
+    return state.ramenToppingSlots.map((s, i) => (s ? i : -1)).filter((i) => i !== -1);
+  }
+
+  async function startRamenToppingDrawing(slotIndex) {
+    state.ramenCurrentSlotIndex = slotIndex;
+    const topping = state.ramenToppingSlots[slotIndex];
+    ClassroomGuard.showLoading('토핑 준비 중이에요...');
+    const guideDataURL = await composeSingleToppingGuide(topping);
+    ClassroomGuard.hideLoading();
+    const syntheticChar = { id: 'ramen-topping-' + topping.id, name: topping.name, steps: [guideDataURL] };
+    state.ramenStage = 'topping';
+    startDrawing(syntheticChar);
+    const filled = ramenFilledIndexes();
+    const order = filled.indexOf(slotIndex) + 1;
+    $('stepIndicator').textContent = `🍜 토핑 그리기 (${order}/${filled.length}) · ${topping.name}`;
+    showScreen('screen-work');
+  }
+
+  /* ---- 3단계: 그릇 채색하기 (제공된 라인드로잉을 바로 채색, 따라그리기 단계 없음) ---- */
+  function enterRamenBowlColoring() {
+    state.ramenStage = 'bowl';
+    workMode = 'color';
+    drawingEnabled = false;
+    closeAllPopovers();
+    resetStageZoom();
+    fillTolerance = 0;
+    $('fillToleranceSlider').value = '0';
+    $('fillToleranceValue').textContent = '0';
+
+    const img = new Image();
+    img.onload = () => {
+      lineArtCtx.clearRect(0, 0, CANVAS_RES, CANVAS_RES);
+      lineArtCtx.drawImage(img, 0, 0, CANVAS_RES, CANVAS_RES);
+      rebuildWallMask();
+    };
+    img.src = RAMEN_BOWL_GUIDE;
+
+    fillCtx.clearRect(0, 0, CANVAS_RES, CANVAS_RES);
+    state.fillHistory = [];
+    state.decoStrokes = [];
+    decoCtx.clearRect(0, 0, CANVAS_RES, CANVAS_RES);
+    setColorTool('fill');
+
+    guideImg.style.display = 'none';
+    drawCanvas.style.display = 'none';
+    lineArtCanvas.style.display = 'block';
+    fillCanvas.style.display = 'block';
+    decoCanvas.style.display = 'block';
+    $('colorClickLayer').style.display = 'block';
+    drawToolbarEl.style.display = 'none';
+    colorToolbarEl.style.display = 'flex';
+    $('backToDrawBtn').style.display = 'none'; // 그릇은 따라그리기 단계가 없어서 "돌아가기"가 의미 없음
+
+    $('stepIndicator').textContent = '🍜 그릇 채색하기';
+    renderPalette();
+    showScreen('screen-work');
+  }
+
+  /* ---- 2·3단계 완성 처리 ---- */
+  function finishRamenStage() {
+    if (state.ramenStage === 'topping') {
+      const out = document.createElement('canvas');
+      out.width = CANVAS_RES; out.height = CANVAS_RES;
+      const octx = out.getContext('2d');
+      octx.drawImage(fillCanvas, 0, 0);
+      octx.drawImage(lineArtCanvas, 0, 0);
+      octx.drawImage(decoCanvas, 0, 0);
+      out.toBlob((blob) => {
+        state.ramenToppingResults[state.ramenCurrentSlotIndex] = URL.createObjectURL(blob);
+        const filled = ramenFilledIndexes();
+        const pos = filled.indexOf(state.ramenCurrentSlotIndex);
+        if (pos < filled.length - 1) {
+          startRamenToppingDrawing(filled[pos + 1]); // 다음 토핑으로
+        } else {
+          enterRamenBowlColoring(); // 토핑 다 그렸으면 그릇 채색으로
+        }
+      }, 'image/png');
+    } else if (state.ramenStage === 'bowl') {
+      // 배경 투명 버전 하나만 만들어서 제출용/게임용 둘 다 같이 사용
+      const out = document.createElement('canvas');
+      out.width = CANVAS_RES; out.height = CANVAS_RES;
+      const octx = out.getContext('2d');
+      octx.drawImage(fillCanvas, 0, 0);
+      octx.drawImage(lineArtCanvas, 0, 0);
+
+      out.toBlob((blob) => {
+        state.ramenBowlImage = URL.createObjectURL(blob);
+        showRamenCombineScreen();
+      }, 'image/png');
+    }
+  }
+
+  /* ---- 4단계: 합치기 & 제출 ----
+     각 토핑의 완성본을 프레임 슬롯 위치(2x2)에 맞춰 그릇 안쪽 사각형에 배치함 */
+  function showRamenCombineScreen() {
+    const canvas = $('ramenCombineCanvas');
+    canvas.width = CANVAS_RES; canvas.height = CANVAS_RES;
+    const ctx = canvas.getContext('2d');
+    const rect = {
+      left: RAMEN_BOWL_OPENING.left * CANVAS_RES,
+      top: RAMEN_BOWL_OPENING.top * CANVAS_RES,
+      right: RAMEN_BOWL_OPENING.right * CANVAS_RES,
+      bottom: RAMEN_BOWL_OPENING.bottom * CANVAS_RES
+    };
+    const cellW = (rect.right - rect.left) / 2, cellH = (rect.bottom - rect.top) / 2;
+
+    const bowlImg = new Image();
+    bowlImg.onload = () => {
+      ctx.clearRect(0, 0, CANVAS_RES, CANVAS_RES);
+      ctx.drawImage(bowlImg, 0, 0, CANVAS_RES, CANVAS_RES);
+
+      const toppingResults = state.ramenToppingResults
+        .map((url, i) => (url ? { url, i } : null))
+        .filter((x) => x);
+      let loaded = 0;
+      if (!toppingResults.length) return;
+      toppingResults.forEach(({ url, i }) => {
+        const img = new Image();
+        img.onload = () => {
+          const col = i % 2, row = Math.floor(i / 2);
+          const cx = rect.left + col * cellW, cy = rect.top + row * cellH;
+          ctx.drawImage(img, cx, cy, cellW, cellH);
+          loaded++;
+        };
+        img.src = url;
+      });
+    };
+    bowlImg.src = state.ramenBowlImage;
+    $('ramenSubmitStatus').textContent = '';
+    showScreen('screen-ramen-combine');
+  }
+
+  $('ramenSubmitBtn').addEventListener('click', () => {
+    ClassroomGuard.showModal('작품을 제출할까요?', [
+      { label: '더 그릴래요', primary: false },
+      { label: '제출하기', primary: true, onClick: submitRamen }
+    ]);
+  });
+
+  function submitRamen() {
+    $('ramenCombineCanvas').toBlob((blob) => {
+      $('ramenSubmitStatus').textContent = '제출 중이에요...';
+      const publicId = `${sanitize(state.studentName)}_${state.school}${state.classCode}_${sanitize(state.ramen.name)}_${timestampTag()}`;
+      const form = new FormData();
+      form.append('file', blob, publicId + '.png');
+      form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      form.append('folder', CLOUDINARY_FOLDER);
+      form.append('public_id', publicId);
+      fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: form })
+        .then((res) => { if (!res.ok) throw new Error('upload failed: ' + res.status); return res.json(); })
+        .then(() => { $('ramenSubmitStatus').textContent = '✅ 제출 완료! 선생님께 잘 전달됐어요.'; })
+        .catch((err) => {
+          console.error(err);
+          $('ramenSubmitStatus').textContent = '⚠️ 제출에 실패했어요. 선생님께 알려주세요.';
+        });
+    }, 'image/png');
+  }
+
+  $('ramenRedoBtn').addEventListener('click', () => {
+    state.ramenToppingSlots = new Array(RAMEN_FRAME_COUNT).fill(null);
+    state.ramenStage = null;
+    enterRamenFrames();
+  });
+
+  /* ============ 5단계: 미니게임 - 토핑 받기 ============ */
+  const RAMEN_GAME_SECONDS = 30;
+  const RAMEN_SPAWN_START_MS = 1100; // 라운드 시작 시 등장 간격
+  const RAMEN_SPAWN_END_MS = 550;    // 라운드 막바지 (점점 빨라짐)
+  const RAMEN_FALL_SPEED_START = 150; // px/초, 라운드 시작
+  const RAMEN_FALL_SPEED_END = 320;   // px/초, 라운드 막바지 (점점 빨라짐)
+  const RAMEN_GAME_CATCH_RANGE = 10;  // 그릇 중심 기준 허용 범위 (% 단위)
+  const RAMEN_CORRECT_SCORE = 30;
+  const RAMEN_WRONG_PENALTY = 20;
+  const RAMEN_DECOY_ITEMS = [
+    { emoji: '🧦', name: '양말' },
+    { emoji: '🥦', name: '브로콜리' },
+    { emoji: '🫚', name: '인삼' }
+  ];
+
+  const ramenGameFieldEl = $('ramenGameField');
+  const ramenGameBowlWrapEl = $('ramenGameBowlWrap');
+  const ramenGameBowlEl = $('ramenGameBowl');
+  const ramenGameBowlToppingsEl = $('ramenGameBowlToppings');
+  let ramenGameActive = false;
+  let ramenGameScore = 0;
+  let ramenGameTimeLeft = RAMEN_GAME_SECONDS;
+  let ramenGameSpawnTimer = null;
+  let ramenGameCountdownTimer = null;
+  let ramenGameRafId = null;
+  let ramenGameLastFrameTime = null;
+  let ramenFallingItems = [];
+  let ramenBowlX = 50; // 필드 폭 기준 % 위치
+  let ramenDragging = false;
+  let ramenBowlToppingCounts = new Map(); // url -> { wrapEl, countEl, count } (받은 토핑별 개수 표시용)
+  let ramenGameCredits = 2; // 연속 플레이 남은 기회
+
+  function ramenRoundProgress() { return Math.min(1, Math.max(0, 1 - ramenGameTimeLeft / RAMEN_GAME_SECONDS)); }
+  function ramenCurrentSpawnMs() { return lerp(RAMEN_SPAWN_START_MS, RAMEN_SPAWN_END_MS, ramenRoundProgress()); }
+  function ramenCurrentFallSpeed() { return lerp(RAMEN_FALL_SPEED_START, RAMEN_FALL_SPEED_END, ramenRoundProgress()); }
+
+  function ramenSetBowlX(percent) {
+    ramenBowlX = Math.min(92, Math.max(8, percent));
+    ramenGameBowlWrapEl.style.left = ramenBowlX + '%';
+  }
+  function ramenFieldPointerToPercent(e) {
+    const rect = ramenGameFieldEl.getBoundingClientRect();
+    return ((e.clientX - rect.left) / rect.width) * 100;
+  }
+  ramenGameFieldEl.addEventListener('pointerdown', (e) => {
+    ramenDragging = true;
+    ramenSetBowlX(ramenFieldPointerToPercent(e));
+  });
+  ramenGameFieldEl.addEventListener('pointermove', (e) => {
+    if (!ramenDragging) return;
+    ramenSetBowlX(ramenFieldPointerToPercent(e));
+  });
+  window.addEventListener('pointerup', () => { ramenDragging = false; });
+  window.addEventListener('pointercancel', () => { ramenDragging = false; });
+
+  function spawnRamenItem() {
+    const drawnToppings = state.ramenToppingResults.filter((r) => r);
+    // 그린 토핑이 없으면 전부 오답 아이템으로 대체 (게임이 진행은 되도록)
+    const useDecoy = !drawnToppings.length || Math.random() < 0.35;
+    const el = document.createElement('div');
+    el.className = 'ramen-falling-item';
+    let isCorrect, correctUrl = null;
+    if (useDecoy) {
+      const decoy = RAMEN_DECOY_ITEMS[Math.floor(Math.random() * RAMEN_DECOY_ITEMS.length)];
+      el.textContent = decoy.emoji;
+      isCorrect = false;
+    } else {
+      const url = drawnToppings[Math.floor(Math.random() * drawnToppings.length)];
+      el.innerHTML = `<img src="${url}" alt="">`;
+      isCorrect = true;
+      correctUrl = url;
+    }
+    const xPercent = 10 + Math.random() * 80;
+    el.style.left = xPercent + '%';
+    el.style.top = '-70px';
+    ramenGameFieldEl.appendChild(el);
+    ramenFallingItems.push({ el, x: xPercent, y: -70, correct: isCorrect, url: correctUrl, done: false });
+  }
+
+  function ramenAddCaughtTopping(url) {
+    if (ramenBowlToppingCounts.has(url)) {
+      const entry = ramenBowlToppingCounts.get(url);
+      entry.count++;
+      entry.countEl.textContent = '×' + entry.count;
+    } else {
+      const wrap = document.createElement('div');
+      wrap.className = 'ramen-bowl-topping-item';
+      const img = document.createElement('img');
+      img.src = url;
+      const countEl = document.createElement('span');
+      countEl.className = 'ramen-bowl-topping-count';
+      countEl.textContent = '×1';
+      wrap.appendChild(img);
+      wrap.appendChild(countEl);
+      ramenGameBowlToppingsEl.appendChild(wrap);
+      ramenBowlToppingCounts.set(url, { wrapEl: wrap, countEl, count: 1 });
+    }
+  }
+
+  function showRamenScorePopup(text, positive) {
+    const popup = document.createElement('div');
+    popup.className = 'ramen-score-popup' + (positive ? '' : ' negative');
+    popup.textContent = text;
+    ramenGameBowlWrapEl.appendChild(popup);
+    setTimeout(() => popup.remove(), 700);
+  }
+
+  function ramenGameLoop(ts) {
+    if (!ramenGameActive) return;
+    if (ramenGameLastFrameTime === null) ramenGameLastFrameTime = ts;
+    const dt = (ts - ramenGameLastFrameTime) / 1000;
+    ramenGameLastFrameTime = ts;
+
+    const fieldRect = ramenGameFieldEl.getBoundingClientRect();
+    const bowlRect = ramenGameBowlWrapEl.getBoundingClientRect();
+    // 그릇 이미지 위쪽에서 살짝 아래(테두리/입구 부근)를 "그릇 중심"으로 잡음
+    const bowlRimY = (bowlRect.top - fieldRect.top) + bowlRect.height * 0.22;
+    const catchWindowTop = bowlRimY - 16;
+    const catchWindowBottom = bowlRimY + 34;
+    const fallSpeed = ramenCurrentFallSpeed();
+
+    ramenFallingItems.forEach((item) => {
+      if (item.done) return;
+      item.y += fallSpeed * dt;
+      item.el.style.top = item.y + 'px';
+
+      if (item.y >= catchWindowTop && !item.done) {
+        const dx = Math.abs(item.x - ramenBowlX);
+        if (item.y <= catchWindowBottom && dx < RAMEN_GAME_CATCH_RANGE) {
+          item.done = true;
+          if (item.correct) {
+            ramenGameScore += RAMEN_CORRECT_SCORE;
+            item.el.classList.add('caught');
+            ramenAddCaughtTopping(item.url);
+            showRamenScorePopup('+' + RAMEN_CORRECT_SCORE, true);
+          } else {
+            ramenGameScore = Math.max(0, ramenGameScore - RAMEN_WRONG_PENALTY);
+            item.el.classList.add('caught', 'wrong');
+            showRamenScorePopup('-' + RAMEN_WRONG_PENALTY, false);
+          }
+          $('ramenGameScore').textContent = String(ramenGameScore);
+          setTimeout(() => item.el.remove(), 220);
+        } else if (item.y > catchWindowBottom + 20) {
+          // 그릇 중심 범위를 그냥 지나쳐버림 (놓침) - 바닥까지 갈 필요 없이 바로 처리
+          item.done = true;
+          item.el.remove();
+        }
+      }
+    });
+    ramenFallingItems = ramenFallingItems.filter((item) => !item.done || item.el.isConnected);
+
+    ramenGameRafId = requestAnimationFrame(ramenGameLoop);
+  }
+
+  function ramenScheduleNextSpawn() {
+    ramenGameSpawnTimer = setTimeout(() => {
+      spawnRamenItem();
+      if (ramenGameActive) ramenScheduleNextSpawn();
+    }, ramenCurrentSpawnMs());
+  }
+
+  function stopRamenGameTimers() {
+    ramenGameActive = false;
+    if (ramenGameSpawnTimer) clearTimeout(ramenGameSpawnTimer);
+    if (ramenGameCountdownTimer) clearInterval(ramenGameCountdownTimer);
+    if (ramenGameRafId) cancelAnimationFrame(ramenGameRafId);
+    ramenGameSpawnTimer = null;
+    ramenGameCountdownTimer = null;
+    ramenGameRafId = null;
+    ramenGameLastFrameTime = null;
+    ramenFallingItems.forEach((item) => item.el.remove());
+    ramenFallingItems = [];
+  }
+
+  function startRamenGameRound() {
+    ramenGameScore = 0;
+    ramenGameTimeLeft = RAMEN_GAME_SECONDS;
+    ramenGameCredits = Math.max(0, ramenGameCredits - 1); // 시작하는 즉시 이번 판을 차감
+    ramenBowlToppingCounts = new Map();
+    ramenGameBowlToppingsEl.innerHTML = '';
+    $('ramenGameScore').textContent = '0';
+    $('ramenGameTimer').textContent = String(ramenGameTimeLeft);
+    $('ramenGameCredits').textContent = String(ramenGameCredits);
+    $('ramenGameOverlay').classList.add('hidden');
+    ramenSetBowlX(50);
+    ramenGameActive = true;
+
+    ramenScheduleNextSpawn();
+    ramenGameCountdownTimer = setInterval(() => {
+      ramenGameTimeLeft--;
+      $('ramenGameTimer').textContent = String(ramenGameTimeLeft);
+      if (ramenGameTimeLeft <= 0) endRamenGameRound();
+    }, 1000);
+    ramenGameRafId = requestAnimationFrame(ramenGameLoop);
+  }
+
+  function endRamenGameRound() {
+    stopRamenGameTimers();
+    $('ramenGameOverlay').classList.remove('hidden');
+    $('ramenGameOverlayTitle').textContent = '게임 끝! 🎉';
+    $('ramenGameOverlayDesc').textContent = `${ramenGameScore}점을 획득했어요!`;
+    const actions = $('ramenGameOverlayActions');
+    actions.innerHTML = '';
+    if (ramenGameCredits > 0) {
+      const again = document.createElement('button');
+      again.className = 'btn coral full';
+      again.textContent = `다시 하기 (남은 기회 ${ramenGameCredits})`;
+      again.addEventListener('click', startRamenGameRound);
+      actions.appendChild(again);
+    } else {
+      const done = document.createElement('button');
+      done.className = 'btn coral full';
+      done.textContent = '✏️ 그림 그리러 가기';
+      done.addEventListener('click', () => {
+        stopRamenGameTimers();
+        enterRamenFrames();
+      });
+      actions.appendChild(done);
+    }
+  }
+
+  $('ramenGameEntryBtn').addEventListener('click', () => {
+    if (!state.ramenBowlImage) {
+      ClassroomGuard.showModal('먼저 그릇을 완성해주세요!', [{ label: '확인', primary: true }]);
+      return;
+    }
+    ramenGameBowlEl.src = state.ramenBowlImage;
+    ramenGameCredits = 2; // 게임에 새로 들어올 때마다 연속 2번 기회로 초기화
+    showScreen('screen-ramen-game');
+
+    $('ramenGameOverlay').classList.remove('hidden');
+    $('ramenGameOverlayTitle').textContent = '토핑 받기';
+    $('ramenGameOverlayDesc').textContent = '그릇을 손가락으로 움직여서 내가 그린 토핑을 받아요! 양말·브로콜리·인삼이 떨어지면 피하세요.';
+    const actions = $('ramenGameOverlayActions');
+    actions.innerHTML = '';
+    const startBtn = document.createElement('button');
+    startBtn.className = 'btn coral full';
+    startBtn.textContent = '시작하기';
+    startBtn.addEventListener('click', startRamenGameRound);
+    actions.appendChild(startBtn);
+  });
 
   function renderPanelCharList(characters) {
     const list = $('panelCharList');
@@ -661,6 +1229,8 @@
     closeAllPopovers();
     syncPenDotIcon();
     resetStageZoom();
+    // 라면 토핑 그리기는 동물 고르기 버튼이 필요 없음
+    $('charPickerBtn').closest('.icon-btn-wrap').style.display = (state.theme === 'ramen') ? 'none' : '';
 
     colorToolbarEl.style.display = 'none';
     drawToolbarEl.style.display = 'flex';
@@ -698,7 +1268,8 @@
         }
       };
       // 캐시 때문에 이전 단계 이미지가 그대로 남는 문제를 막기 위해 매번 새 요청을 강제함
-      guideImg.src = basePath + '?v=' + Date.now();
+      // data: URI(라면 토핑처럼 그때그때 합성한 가이드)는 쿼리스트링을 붙이면 깨지므로 그대로 사용
+      guideImg.src = basePath.startsWith('data:') ? basePath : basePath + '?v=' + Date.now();
     }
     tryLoadGuide();
 
@@ -743,6 +1314,7 @@
   nextStepBtnEl.addEventListener('click', () => {
     if (nextStepLongPressFired) return; // 길게 눌러 이전 단계로 이미 이동했으면, 뒤이은 클릭(다음 단계)은 무시
     if (workMode === 'color') {
+      if (state.theme === 'ramen') { finishRamenStage(); return; }
       confirmSubmit();
       return;
     }
@@ -781,6 +1353,9 @@
     drawingEnabled = false;
     closeAllPopovers();
     resetStageZoom();
+    fillTolerance = 0;
+    $('fillToleranceSlider').value = '0';
+    $('fillToleranceValue').textContent = '0';
 
     lineArtCtx.clearRect(0, 0, CANVAS_RES, CANVAS_RES);
     lineArtCtx.drawImage(drawCanvas, 0, 0);
@@ -800,6 +1375,7 @@
     $('colorClickLayer').style.display = 'block';
     drawToolbarEl.style.display = 'none';
     colorToolbarEl.style.display = 'flex';
+    $('backToDrawBtn').style.display = ''; // 라면 그릇 채색 단계에서 숨겼을 수 있으니 기본값으로 복원
 
     $('stepIndicator').textContent = '🎨 색칠하기';
     $('nextStepBtn').textContent = '➡️';
@@ -883,6 +1459,11 @@
     });
   }
 
+  $('fillToleranceSlider').addEventListener('input', (e) => {
+    fillTolerance = Number(e.target.value);
+    $('fillToleranceValue').textContent = String(fillTolerance);
+  });
+
   // 스캔라인 방식 플러드필 (마스크 기반, 반복문 스택 사용 - 재귀 X)
   function floodFillAt(cx, cy) {
     const w = CANVAS_RES, h = CANVAS_RES;
@@ -892,7 +1473,7 @@
 
     const visited = new Uint8Array(w * h);
     const stack = [[sx, sy]];
-    const filledPixels = [];
+    let filledPixels = [];
 
     while (stack.length) {
       let [x, y] = stack.pop();
@@ -927,6 +1508,9 @@
 
     if (!filledPixels.length) return;
 
+    // 오차(허용 오차)만큼 채워진 영역을 바깥으로 살짝 더 넓힘 (선을 살짝 넘어가도 괜찮게)
+    if (fillTolerance > 0) filledPixels = growFilledPixels(filledPixels, fillTolerance);
+
     state.fillHistory.push(fillCtx.getImageData(0, 0, CANVAS_RES, CANVAS_RES));
     if (state.fillHistory.length > 20) state.fillHistory.shift();
 
@@ -940,6 +1524,29 @@
       imgData.data[p + 3] = 255;
     }
     fillCtx.putImageData(imgData, 0, 0);
+  }
+
+  // 채워진 픽셀 집합을 바깥쪽으로 iterations번 확장 (선을 살짝 넘어가는 "오차" 효과)
+  function growFilledPixels(filledPixels, iterations) {
+    const w = CANVAS_RES, h = CANVAS_RES;
+    const inSet = new Uint8Array(w * h);
+    for (const idx of filledPixels) inSet[idx] = 1;
+    let frontier = filledPixels;
+    const grown = filledPixels.slice();
+
+    for (let iter = 0; iter < iterations; iter++) {
+      const newFrontier = [];
+      for (const idx of frontier) {
+        const x = idx % w, y = (idx - x) / w;
+        if (x > 0 && !inSet[idx - 1]) { inSet[idx - 1] = 1; newFrontier.push(idx - 1); grown.push(idx - 1); }
+        if (x < w - 1 && !inSet[idx + 1]) { inSet[idx + 1] = 1; newFrontier.push(idx + 1); grown.push(idx + 1); }
+        if (y > 0 && !inSet[idx - w]) { inSet[idx - w] = 1; newFrontier.push(idx - w); grown.push(idx - w); }
+        if (y < h - 1 && !inSet[idx + w]) { inSet[idx + w] = 1; newFrontier.push(idx + w); grown.push(idx + w); }
+      }
+      frontier = newFrontier;
+      if (!frontier.length) break;
+    }
+    return grown;
   }
 
   function hexToRgb(hex) {
